@@ -142,6 +142,11 @@ details[open].more summary::before{content:"▾ "}
 .fit-btn{background:var(--card);border:2px solid rgba(0,0,0,.2);border-radius:6px;padding:8px 12px;font:600 13px system-ui;cursor:pointer;color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.15)}
 .fit-btn:hover{background:var(--chip)}
 .leaflet-top.leaflet-left{margin-top:12px}
+.start-icon{background:transparent;border:0}
+.start-pin-inner{width:20px;height:20px;background:#d32f2f;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.4);position:relative}
+.start-pin-inner::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:6px;height:6px;background:#fff;border-radius:50%}
+.start-pin-inner::before{content:'';position:absolute;top:-30px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:8px solid #d32f2f;opacity:0;animation:bounce 1.2s ease-out}
+@keyframes bounce{0%{opacity:0;top:-40px}60%{opacity:1;top:-28px}100%{opacity:0;top:-26px}}
 
 /* ----- Event ended banner ----- */
 .banner{background:#fff3cd;color:#856404;border-left:4px solid #f0ad4e;padding:10px 14px;border-radius:var(--radius-sm);font-size:13px}
@@ -441,6 +446,15 @@ const FitControl = L.Control.extend({
 });
 new FitControl().addTo(map);
 
+// Red pin for the start address — visually distinct from the blue stop markers
+const startIcon = L.divIcon({
+  className: 'start-icon',
+  html: '<div class="start-pin-inner"></div>',
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
+  popupAnchor: [0, -14]
+});
+
 const baseLayer = L.layerGroup().addTo(map);
 const routeLayer = L.layerGroup().addTo(map);
 const clusterLayer = L.layerGroup().addTo(map);
@@ -723,7 +737,8 @@ function render(){
     });
   }
 
-  L.marker([startPt.lat, startPt.lng], {title:'Start'}).addTo(routeLayer).bindPopup('<b>Start</b><br>' + esc(currentStart.addr));
+  L.marker([startPt.lat, startPt.lng], {title:'Start', icon: startIcon, zIndexOffset: 1000})
+    .addTo(routeLayer).bindPopup('<b>🏠 Start</b><br>' + esc(currentStart.addr));
   currentStops.forEach((s, i) => {
     const m = L.marker([s.lat,s.lng], {title: (i+1)+'. '+s.title}).addTo(routeLayer);
     m.bindPopup(`<b>${i+1}. ${esc(s.title)}</b><br>${esc(s.street)}<br>${s.cats.join(', ')}`);
