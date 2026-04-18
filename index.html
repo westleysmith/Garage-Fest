@@ -7,6 +7,14 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Modesto GarageFest Route Planner</title>
+<meta name="description" content="Pick your categories, set a radius, get an optimized route through GarageFest sales.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://westleysmith.github.io/Garage-Fest/">
+<meta property="og:title" content="🛍️ Modesto GarageFest Route Planner">
+<meta property="og:description" content="Pick your categories, set a radius, get an optimized route through GarageFest sales.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="🛍️ Modesto GarageFest Route Planner">
+<meta name="twitter:description" content="Pick your categories, set a radius, get an optimized route through GarageFest sales.">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E📍%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 <style>
@@ -245,10 +253,9 @@ details[open].more summary::before{content:"▾ "}
       </div>
 
       <div class="btn-row" id="exportRow" hidden>
-        <button id="openGoogle" class="btn">🗺️ Full route (Google Maps)</button>
-        <button id="openApple" class="btn ghost">🍎 All stops (Apple)</button>
+        <button id="openGoogle" class="btn">🗺️ Google Maps</button>
+        <button id="openApple" class="btn ghost">🍎 Apple Maps</button>
       </div>
-      <p id="mapsHint" class="muted-hint" hidden>Google Maps routes the whole trip. Apple Maps routes to the first stop — tap the next one in its list when you arrive.</p>
 
       <div id="stops" class="stops"></div>
       <div id="empty" class="empty" hidden></div>
@@ -593,7 +600,14 @@ async function generate(){
     const walkMeters = walkFt * 0.3048;
     const useBigness = $('#weightBigness').checked;
     const useCluster = $('#weightCluster').checked;
-    const startAddr = $('#start').value.trim() || '537 Terminal Ave, Modesto, CA';
+    const startAddr = $('#start').value.trim();
+    if (!startAddr){
+      toast('Enter a starting address first');
+      $('#start').focus();
+      currentStops = [];
+      ctx = { maxRadiusMi, walkMeters, neighborMap: {}, clustersAll: {}, inRadiusCount: 0, scoredCount: 0 };
+      return;
+    }
     const kwOn = new Set([...$$('.kw.on')].map(e => e.dataset.k));
 
     try {
@@ -657,7 +671,6 @@ function render(){
   const hasStops = currentStops.length > 0;
   $('#summary').hidden = !hasStops;
   $('#exportRow').hidden = !hasStops;
-  $('#mapsHint').hidden = !hasStops;
   if (hasStops){
     let total = 0; let cur = startPt;
     currentStops.forEach(s => { total += distKm(cur, s); cur = s; });
@@ -874,11 +887,10 @@ function init(){
   buildCats();
   buildKws();
   applySavedSettings();
-  if (!$('#start').value) $('#start').value = '537 Terminal Ave, Modesto, CA';
   $('#meta').textContent = `${DATA.length} sales · ends 4 PM`;
   checkEventWindow();
-  // Auto-run on first load
-  setTimeout(() => generate(), 200);
+  // Only auto-generate if the user has already saved a start address (returning visitor)
+  if ($('#start').value.trim()) setTimeout(() => generate(), 200);
 }
 init();
 </script>
