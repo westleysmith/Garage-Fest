@@ -248,7 +248,7 @@ details[open].more summary::before{content:"▾ "}
         <button id="openGoogle" class="btn">🗺️ Full route (Google Maps)</button>
         <button id="openApple" class="btn ghost">🍎 All stops (Apple)</button>
       </div>
-      <p id="mapsHint" class="muted-hint" hidden>Google Maps routes the whole trip. Apple shows all stops but can't route a chain — tap any stop in Apple Maps to go there.</p>
+      <p id="mapsHint" class="muted-hint" hidden>Google Maps routes the whole trip. Apple Maps routes to the first stop — tap the next one in its list when you arrive.</p>
 
       <div id="stops" class="stops"></div>
       <div id="empty" class="empty" hidden></div>
@@ -844,7 +844,7 @@ $('#openApple').onclick = () => {
   const saddr = `${startPt.lat},${startPt.lng}`;
   const chain = currentStops.map(s => `${s.lat},${s.lng}`).join('+to:');
   window.open(`https://maps.apple.com/?saddr=${saddr}&daddr=${chain}&dirflg=d`, '_blank');
-  if (currentStops.length > 1) toast("All stops shown — Apple can't route a chain. Tap any stop in Apple Maps to go there.");
+  if (currentStops.length > 1) toast(`Routing to stop 1 of ${currentStops.length} — tap the next one in Apple Maps when you arrive.`);
 };
 
 // Tabs
