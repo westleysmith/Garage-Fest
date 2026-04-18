@@ -248,7 +248,6 @@ details[open].more summary::before{content:"▾ "}
         <button id="openGoogle" class="btn ghost">🗺️ Google Maps</button>
       </div>
 
-      <div id="loading" class="loading" hidden><span class="spinner"></span> Generating route…</div>
       <div id="stops" class="stops"></div>
       <div id="empty" class="empty" hidden></div>
     </section>
@@ -541,24 +540,42 @@ function applySavedSettings(){
 }
 
 // ============ GEOCODE ============
-async function geocode(q){
+const GEO_CACHE_KEY = 'garagefest:geo';
+function geoCacheGet(addr){
+  try { return JSON.parse(localStorage.getItem(GEO_CACHE_KEY) || '{}')[addr.toLowerCase()] || null; }
+  catch(e) { return null; }
+}
+function geoCacheSet(addr, pt){
+  try {
+    const c = JSON.parse(localStorage.getItem(GEO_CACHE_KEY) || '{}');
+    c[addr.toLowerCase()] = pt;
+    localStorage.setItem(GEO_CACHE_KEY, JSON.stringify(c));
+  } catch(e) {}
+}
+async function geocode(q, timeoutMs=4000){
   const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q);
-  const r = await fetch(url, {headers:{'Accept':'application/json'}});
-  const j = await r.json();
-  if (!j || !j[0]) throw new Error('no result');
-  return { lat:parseFloat(j[0].lat), lng:parseFloat(j[0].lon) };
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, {headers:{'Accept':'application/json'}, signal: ac.signal});
+    const j = await r.json();
+    if (!j || !j[0]) throw new Error('no result');
+    return { lat: parseFloat(j[0].lat), lng: parseFloat(j[0].lon) };
+  } finally { clearTimeout(t); }
 }
 async function geocodeStart(addr){
-  // Try a few variations so friends don't have to format perfectly
+  const cached = geoCacheGet(addr);
+  if (cached) return cached;
   const tries = [addr, addr + ', Modesto CA', addr + ', Modesto, CA 95354'];
-  for (const q of tries){ try { return await geocode(q); } catch(e){} }
+  for (const q of tries){
+    try { const pt = await geocode(q); geoCacheSet(addr, pt); return pt; } catch(e){}
+  }
   throw new Error('geocode failed');
 }
 
 // ============ GENERATE ============
 async function generate(){
   savePrefs();
-  $('#loading').hidden = false;
   $('#empty').hidden = true;
   $('#stops').innerHTML = '';
 
@@ -628,7 +645,6 @@ async function generate(){
     toast('Something went wrong — ' + (err.message || 'try again'));
     currentStops = [];
   } finally {
-    $('#loading').hidden = true;
     render();
   }
 }
@@ -679,7 +695,9 @@ function render(){
     const walkableInRoute = [...nbrs].filter(n => currentStops.find(x => x.id === n)).length;
     const addrFull = `${s.street}, ${s.city} ${s.zip}`;
     const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addrFull)}`;
-    const amapsUrl = `http://maps.apple.com/?daddr=${encodeURIComponent(addrFull)}&dirflg=d`;
+    // Use lat/lng + q= label so Apple Maps doesn't have to geocode the address string
+    // (which was failing with "can't connect to the server")
+    const amapsUrl = `https://maps.apple.com/?daddr=${s.lat},${s.lng}&q=${encodeURIComponent(s.title)}&dirflg=d`;
     const desc = (s.description||'').trim();
     const desc2 = (s.description2||'').trim();
     const bothDesc = [desc, desc2].filter(d => d && d.toLowerCase() !== 'not available').join('\n\n');
@@ -817,14 +835,14 @@ $('#openGoogle').onclick = () => {
 };
 $('#openApple').onclick = () => {
   if (!currentStops.length) { toast('Generate a route first'); return; }
-  // Apple Maps URL scheme doesn't reliably chain multiple destinations — the "to:" syntax
-  // shows "directions not available" on modern iOS. Just open the FIRST leg cleanly; each
-  // stop card has its own Apple Maps link for the next leg.
-  const saddr = encodeURIComponent(currentStart.addr);
+  // Apple Maps chokes on long string addresses ("can't connect to the server") because it
+  // tries to geocode them against Apple's server. Pass coordinates directly so it skips
+  // geocoding entirely.
+  const saddr = `${startPt.lat},${startPt.lng}`;
   const first = currentStops[0];
-  const daddr = encodeURIComponent(`${first.street}, ${first.city} ${first.zip}`);
-  window.open(`http://maps.apple.com/?saddr=${saddr}&daddr=${daddr}&dirflg=d`, '_blank');
-  if (currentStops.length > 1) toast('Apple Maps: opening leg 1 of ' + currentStops.length + '. Tap each stop card to open the next.');
+  const daddr = `${first.lat},${first.lng}`;
+  window.open(`https://maps.apple.com/?saddr=${saddr}&daddr=${daddr}&dirflg=d`, '_blank');
+  if (currentStops.length > 1) toast('Leg 1 of ' + currentStops.length + ' — tap each stop in the list for the next leg.');
 };
 
 // Tabs
