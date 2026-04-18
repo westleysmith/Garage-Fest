@@ -221,8 +221,8 @@ details[open].more summary::before{content:"▾ "}
                 <input id="minCats" type="number" value="2" min="1" max="19" />
               </div>
               <div>
-                <label>Walk distance (ft)</label>
-                <input id="walkFt" type="number" value="1300" min="200" max="3000" step="100" />
+                <label>Walk cutoff (ft, same st)</label>
+                <input id="walkFt" type="number" value="600" min="200" max="2000" step="50" />
               </div>
             </div>
           </details>
@@ -286,7 +286,7 @@ function toast(msg, ms=2200){
 }
 
 // ============ STORAGE ============
-const STORE_KEY = 'garagefest:v1';
+const STORE_KEY = 'garagefest:v2';
 function savePrefs(){
   const prefs = {};
   $$('#cats .cat').forEach(r => {
@@ -310,15 +310,45 @@ function loadPrefs(){
 }
 
 // ============ CLUSTERING ============
-// Union-find over walkable pairs
+// Extract the street name from an address like "1308 Lorry Ave" → "lorry ave"
+// We need this because straight-line distance alone says "2 houses 150ft apart"
+// even if one is on the next block — no sane person walks through backyards.
+function streetNameOf(street){
+  return (street || '')
+    .replace(/^\s*\d+\s*/, '')
+    .replace(/\s+(unit|apt|ste|suite|spc|#).*$/i, '')
+    .replace(/[.,]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(/\b(street|st)\b/g, 'st')
+    .replace(/\b(avenue|ave)\b/g, 'ave')
+    .replace(/\b(drive|dr)\b/g, 'dr')
+    .replace(/\b(road|rd)\b/g, 'rd')
+    .replace(/\b(lane|ln)\b/g, 'ln')
+    .replace(/\b(court|ct)\b/g, 'ct')
+    .replace(/\b(boulevard|blvd)\b/g, 'blvd')
+    .replace(/\b(place|pl)\b/g, 'pl')
+    .replace(/\b(circle|cir)\b/g, 'cir')
+    .replace(/\b(terrace|ter)\b/g, 'ter')
+    .replace(/\b(parkway|pkwy)\b/g, 'pkwy');
+}
+
+// Two sales are walkable if they share a street name AND are close as the crow flies.
+// "Same street" filters out the "next block over" false positives.
+function isWalkable(a, b, walkMeters){
+  if (distMeters(a, b) >= walkMeters) return false;
+  const sa = streetNameOf(a.street), sb = streetNameOf(b.street);
+  return sa && sa === sb;
+}
+
 function buildClusters(sales, walkMeters){
   const parent = {}; const find = x => parent[x]===x ? x : (parent[x]=find(parent[x]));
   const union = (a,b)=>{ const ra=find(a), rb=find(b); if(ra!==rb) parent[ra]=rb; };
   sales.forEach(s => parent[s.id]=s.id);
-  // O(n^2) — fine for n=272
   for (let i=0;i<sales.length;i++){
     for (let j=i+1;j<sales.length;j++){
-      if (distMeters(sales[i], sales[j]) < walkMeters) union(sales[i].id, sales[j].id);
+      if (isWalkable(sales[i], sales[j], walkMeters)) union(sales[i].id, sales[j].id);
     }
   }
   const clusters = {}; // root -> [ids]
@@ -526,7 +556,7 @@ async function generate(){
     const maxStops = parseInt($('#maxStops').value,10) || 20;
     const minCats = parseInt($('#minCats').value,10) || 1;
     const maxRadiusMi = parseFloat($('#maxRadius').value) || 3;
-    const walkFt = parseFloat($('#walkFt').value) || 1300;
+    const walkFt = parseFloat($('#walkFt').value) || 600;
     const walkMeters = walkFt * 0.3048;
     const useBigness = $('#weightBigness').checked;
     const useCluster = $('#weightCluster').checked;
