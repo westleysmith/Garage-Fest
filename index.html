@@ -128,6 +128,7 @@ details[open].more summary::before{content:"▾ "}
 .hop.walk{color:var(--green)}
 
 .empty,.loading{text-align:center;padding:32px 16px;color:var(--muted);font-size:14px}
+.muted-hint{margin:-4px 2px 0;font-size:11px;color:var(--muted);line-height:1.35;text-align:center}
 .loading{display:flex;align-items:center;justify-content:center;gap:10px}
 .spinner{width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -244,9 +245,10 @@ details[open].more summary::before{content:"▾ "}
       </div>
 
       <div class="btn-row" id="exportRow" hidden>
-        <button id="openApple" class="btn">🍎 Apple Maps</button>
-        <button id="openGoogle" class="btn ghost">🗺️ Google Maps</button>
+        <button id="openGoogle" class="btn">🗺️ Full route (Google Maps)</button>
+        <button id="openApple" class="btn ghost">🍎 Next stop (Apple)</button>
       </div>
+      <p id="mapsHint" class="muted-hint" hidden>Google Maps handles the whole route; Apple Maps only supports one leg at a time, so tap each stop in the list as you go.</p>
 
       <div id="stops" class="stops"></div>
       <div id="empty" class="empty" hidden></div>
@@ -655,6 +657,7 @@ function render(){
   const hasStops = currentStops.length > 0;
   $('#summary').hidden = !hasStops;
   $('#exportRow').hidden = !hasStops;
+  $('#mapsHint').hidden = !hasStops;
   if (hasStops){
     let total = 0; let cur = startPt;
     currentStops.forEach(s => { total += distKm(cur, s); cur = s; });
