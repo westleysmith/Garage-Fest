@@ -70,7 +70,9 @@ button.secondary{background:#444}
 .stop .rm:hover{color:#fff;background:#c33;border-radius:4px}
 .removed-bar{margin-top:8px;font-size:12px;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
 .removed-bar a{color:var(--accent);cursor:pointer;text-decoration:underline}
-#map{height:100%;min-height:400px;border-radius:10px;overflow:hidden}
+#map{height:100%;min-height:400px;border-radius:10px;overflow:hidden;touch-action:none}
+.fit-btn{background:#fff;border:2px solid rgba(0,0,0,.2);border-radius:4px;padding:6px 10px;font:600 13px system-ui,sans-serif;cursor:pointer;color:#333;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.fit-btn:hover{background:#f5f5f5}
 .stats{background:#f3f0e8;padding:8px 10px;border-radius:6px;margin:10px 0;font-size:12px;color:#555}
 .inline{display:flex;gap:10px;align-items:center}
 .kw{font-size:11px;color:var(--muted);margin-left:4px}
@@ -244,12 +246,41 @@ let startPt = null;
 let currentStops = [];
 let currentStart = null;
 const blacklist = new Set(); // sale ids the user X'd out
-const map = L.map('map').setView([37.6585, -120.9877], 12);
+const map = L.map('map', {
+  center: [37.6585, -120.9877],
+  zoom: 11,
+  preferCanvas: true,
+  zoomSnap: 0.5,
+  wheelDebounceTime: 40,
+  wheelPxPerZoomLevel: 100,
+  inertia: true
+});
 // ESRI tiles don't require a referrer header (OSM does and was 403ing in the preview panel)
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{
   maxZoom:19,
   attribution:'© Esri, HERE, Garmin, USGS, Intermap'
 }).addTo(map);
+
+// "Fit to route" control — snaps the map back to show the whole trip
+const FitControl = L.Control.extend({
+  options: { position: 'topleft' },
+  onAdd: function() {
+    const btn = L.DomUtil.create('button', 'leaflet-bar fit-btn');
+    btn.innerHTML = '⤢ Fit';
+    btn.title = 'Zoom to show full route';
+    btn.type = 'button';
+    L.DomEvent.disableClickPropagation(btn);
+    btn.onclick = () => {
+      if (routeLine && radiusCircle) {
+        map.fitBounds(routeLine.getBounds().extend(radiusCircle.getBounds()), {padding:[30,30], maxZoom: 14});
+      } else if (radiusCircle) {
+        map.fitBounds(radiusCircle.getBounds(), {padding:[30,30]});
+      }
+    };
+    return btn;
+  }
+});
+new FitControl().addTo(map);
 let markerLayer = L.layerGroup().addTo(map);
 let routeLine = null;
 let radiusCircle = null;
@@ -354,7 +385,9 @@ function renderCurrent() {
   }).addTo(map);
   if (currentStops.length) {
     routeLine = L.polyline([[startPt.lat,startPt.lng], ...currentStops.map(s=>[s.lat,s.lng])], {color:'#f0523d',weight:4,opacity:0.7}).addTo(map);
-    map.fitBounds(routeLine.getBounds().extend(radiusCircle.getBounds()), {padding:[30,30]});
+    // Include the radius circle so the view always shows the whole search area.
+    // maxZoom cap prevents zooming into a single point if there's only 1 stop.
+    map.fitBounds(routeLine.getBounds().extend(radiusCircle.getBounds()), {padding:[30,30], maxZoom: 14});
   } else {
     map.fitBounds(radiusCircle.getBounds(), {padding:[30,30]});
   }
@@ -392,7 +425,8 @@ document.getElementById('stops').addEventListener('click', (e) => {
     const id = card.dataset.id;
     const s = currentStops.find(x => x.id === id);
     if (s) {
-      map.setView([s.lat, s.lng], Math.max(map.getZoom(), 15));
+      // Just pan — don't override the user's zoom level
+      map.panTo([s.lat, s.lng], {animate:true, duration:0.4});
       markerLayer.eachLayer(layer => {
         if (layer.getLatLng && Math.abs(layer.getLatLng().lat - s.lat) < 1e-6 && Math.abs(layer.getLatLng().lng - s.lng) < 1e-6) {
           if (layer.openPopup) layer.openPopup();
