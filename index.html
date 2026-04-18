@@ -102,22 +102,18 @@ details[open].more summary::before{content:"▾ "}
 .summary .lab{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-top:2px}
 
 /* ----- Stops list ----- */
-.stops{display:flex;flex-direction:column;gap:8px}
-.stop{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 14px;cursor:pointer;transition:.12s;position:relative}
-.stop:hover{box-shadow:var(--shadow-md)}
-.stop.open{box-shadow:var(--shadow-md)}
-.stop .top{display:flex;align-items:flex-start;gap:10px}
-.stop .badge{flex:0 0 32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
-.stop .body{flex:1;min-width:0}
-.stop .title{font-weight:600;font-size:15px;line-height:1.3;word-wrap:break-word}
+.stops{display:flex;flex-direction:column;gap:6px}
+.stop{background:var(--card);border-radius:var(--radius-sm);border-left:3px solid var(--accent);padding:10px 12px;cursor:pointer;transition:background .12s;position:relative;box-shadow:var(--shadow)}
+.stop:hover{background:#fbf9f3}
+.stop .hdr{display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin-bottom:2px}
+.stop .num{color:var(--accent);font-weight:700;font-size:12px;font-variant-numeric:tabular-nums}
+.stop .title{font-weight:600;font-size:14px;line-height:1.3;word-wrap:break-word;padding-right:28px}
 .stop .addr{color:var(--muted);font-size:12px;margin-top:2px;line-height:1.3}
-.stop .rm{position:absolute;top:10px;right:10px;width:28px;height:28px;border-radius:6px;background:transparent;color:#c33;border:0;font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-weight:400}
+.stop .rm{position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:6px;background:transparent;color:#c33;border:0;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
 .stop .rm:hover{background:#fde8e6}
-.stop .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:12px;color:var(--muted)}
-.stop .meta .dot{width:3px;height:3px;background:var(--muted);border-radius:50%;align-self:center}
-.stop .cluster-badge{display:inline-flex;align-items:center;gap:4px;background:var(--green-bg);color:var(--green);padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600}
-.stop .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
-.tag{background:var(--chip);border-radius:4px;padding:2px 7px;font-size:11px;color:var(--muted)}
+.stop .cluster-badge{display:inline-flex;align-items:center;gap:3px;background:var(--green-bg);color:var(--green);padding:1px 7px;border-radius:999px;font-size:11px;font-weight:600;margin-left:6px}
+.stop .tags{display:flex;flex-wrap:wrap;gap:3px;margin-top:6px}
+.tag{background:var(--chip);border-radius:3px;padding:1px 6px;font-size:11px;color:var(--muted)}
 .tag.hit{background:var(--green-bg);color:var(--green);font-weight:600}
 .stop .detail{display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);font-size:13px}
 .stop.open .detail{display:block}
@@ -522,76 +518,75 @@ async function generate(){
   $('#empty').hidden = true;
   $('#stops').innerHTML = '';
 
-  const prefs = {};
-  $$('#cats .cat').forEach(r => {
-    if (r.querySelector('input').checked) prefs[r.dataset.cat] = parseInt(r.dataset.weight,10);
-  });
-  const maxStops = parseInt($('#maxStops').value,10) || 20;
-  const minCats = parseInt($('#minCats').value,10) || 1;
-  const maxRadiusMi = parseFloat($('#maxRadius').value) || 3;
-  const walkFt = parseFloat($('#walkFt').value) || 1300;
-  const walkMeters = walkFt * 0.3048;
-  const useBigness = $('#weightBigness').checked;
-  const useCluster = $('#weightCluster').checked;
-  const startAddr = $('#start').value.trim() || '537 Terminal Ave, Modesto, CA';
-  const kwOn = new Set([...$$('.kw.on')].map(e => e.dataset.k));
-
   try {
-    startPt = await geocodeStart(startAddr);
-  } catch(e){
-    $('#loading').hidden = true;
-    toast('Could not find that address — try a cross-street');
-    return;
-  }
+    const prefs = {};
+    $$('#cats .cat').forEach(r => {
+      if (r.querySelector('input').checked) prefs[r.dataset.cat] = parseInt(r.dataset.weight,10);
+    });
+    const maxStops = parseInt($('#maxStops').value,10) || 20;
+    const minCats = parseInt($('#minCats').value,10) || 1;
+    const maxRadiusMi = parseFloat($('#maxRadius').value) || 3;
+    const walkFt = parseFloat($('#walkFt').value) || 1300;
+    const walkMeters = walkFt * 0.3048;
+    const useBigness = $('#weightBigness').checked;
+    const useCluster = $('#weightCluster').checked;
+    const startAddr = $('#start').value.trim() || '537 Terminal Ave, Modesto, CA';
+    const kwOn = new Set([...$$('.kw.on')].map(e => e.dataset.k));
 
-  const withDist = DATA
-    .filter(s => !blacklist.has(s.id))
-    .map(s => ({ ...s, distMi: distMi(startPt, s) }));
-  const inRadius = withDist.filter(s => s.distMi <= maxRadiusMi);
-
-  // Build clusters across ALL in-radius sales (not just matches)
-  const { byId: clusterByIdAll, clusters: clustersAll } = buildClusters(inRadius, walkMeters);
-  // Map id -> set of walkable neighbors (same cluster, different id)
-  const neighborMap = {};
-  Object.entries(clustersAll).forEach(([root, ids]) => {
-    ids.forEach(id => neighborMap[id] = new Set(ids.filter(x => x !== id)));
-  });
-
-  const scored = inRadius
-    .map(s => ({ ...s, ...scoreStop(s, prefs, useBigness, useCluster, neighborMap[s.id] || new Set(), kwOn) }))
-    .filter(s => s.score > 0 && s.cats.length >= minCats);
-  scored.sort((a,b) => b.score - a.score);
-
-  // Greedy cluster-aware pick: start with top-scored, then add any walkable neighbor that also matches
-  const picked = [];
-  const pickedIds = new Set();
-  for (const s of scored){
-    if (picked.length >= maxStops) break;
-    if (pickedIds.has(s.id)) continue;
-    picked.push(s); pickedIds.add(s.id);
-    if (!useCluster) continue;
-    // pull in walkable neighbors that also match (up to fill quota)
-    const nbrs = [...(neighborMap[s.id] || [])]
-      .map(id => scored.find(x => x.id === id))
-      .filter(Boolean)
-      .sort((a,b) => b.score - a.score);
-    for (const n of nbrs){
-      if (picked.length >= maxStops) break;
-      if (pickedIds.has(n.id)) continue;
-      picked.push(n); pickedIds.add(n.id);
+    try {
+      startPt = await geocodeStart(startAddr);
+    } catch(e){
+      toast('Could not find that address — try a cross-street');
+      currentStops = [];
+      ctx = { maxRadiusMi, walkMeters, neighborMap: {}, clustersAll: {}, inRadiusCount: 0, scoredCount: 0 };
+      return;
     }
+
+    const withDist = DATA
+      .filter(s => !blacklist.has(s.id))
+      .map(s => ({ ...s, distMi: distMi(startPt, s) }));
+    const inRadius = withDist.filter(s => s.distMi <= maxRadiusMi);
+
+    const { clusters: clustersAll } = buildClusters(inRadius, walkMeters);
+    const neighborMap = {};
+    Object.entries(clustersAll).forEach(([root, ids]) => {
+      ids.forEach(id => neighborMap[id] = new Set(ids.filter(x => x !== id)));
+    });
+
+    const scored = inRadius
+      .map(s => ({ ...s, ...scoreStop(s, prefs, useBigness, useCluster, neighborMap[s.id] || new Set(), kwOn) }))
+      .filter(s => s.score > 0 && s.cats.length >= minCats);
+    scored.sort((a,b) => b.score - a.score);
+
+    const picked = [];
+    const pickedIds = new Set();
+    for (const s of scored){
+      if (picked.length >= maxStops) break;
+      if (pickedIds.has(s.id)) continue;
+      picked.push(s); pickedIds.add(s.id);
+      if (!useCluster) continue;
+      const nbrs = [...(neighborMap[s.id] || [])]
+        .map(id => scored.find(x => x.id === id))
+        .filter(Boolean)
+        .sort((a,b) => b.score - a.score);
+      for (const n of nbrs){
+        if (picked.length >= maxStops) break;
+        if (pickedIds.has(n.id)) continue;
+        picked.push(n); pickedIds.add(n.id);
+      }
+    }
+
+    currentStops = orderStops(startPt, picked);
+    currentStart = { ...startPt, addr: startAddr };
+    ctx = { maxRadiusMi, walkMeters, neighborMap, clustersAll, inRadiusCount: inRadius.length, scoredCount: scored.length };
+  } catch(err){
+    console.error('generate failed', err);
+    toast('Something went wrong — ' + (err.message || 'try again'));
+    currentStops = [];
+  } finally {
+    $('#loading').hidden = true;
+    render();
   }
-
-  const ordered = orderStops(startPt, picked);
-  currentStops = ordered;
-  currentStart = { ...startPt, addr: startAddr };
-  ctx = { maxRadiusMi, walkMeters, neighborMap, clustersAll, inRadiusCount: inRadius.length, scoredCount: scored.length };
-
-  $('#loading').hidden = true;
-  // Auto-collapse settings card after first successful run (desktop too, keeps UI clean)
-  $('#settingsCard').classList.add('collapsed');
-
-  render();
 }
 
 // ============ RENDER ============
@@ -647,40 +642,23 @@ function render(){
 
     card.innerHTML = `
       <button class="rm" aria-label="Remove stop" data-id="${esc(s.id)}">×</button>
-      <div class="top">
-        <div class="badge">${i+1}</div>
-        <div class="body">
-          <div class="title">${esc(s.title)}</div>
-          <div class="addr">${esc(addrFull)} · ${s.distMi.toFixed(1)} mi</div>
-          <div class="meta">
-            ${walkableInRoute ? `<span class="cluster-badge">🚶 ${walkableInRoute} walkable</span>` : ''}
-            ${s.clusterBonus > 0 && !walkableInRoute ? `<span class="cluster-badge">🚶 cluster nearby</span>` : ''}
-          </div>
-          <div class="tags">
-            ${s.cats.map(c => `<span class="tag${hitSet.has(c)?' hit':''}">${esc(c)}</span>`).join('')}
-          </div>
-        </div>
+      <div class="hdr">
+        <span class="num">#${i+1} · +${s.score.toFixed(1)}</span>
+      </div>
+      <div class="title">${esc(s.title)}${walkableInRoute ? `<span class="cluster-badge">🚶 ${walkableInRoute}</span>` : ''}</div>
+      <div class="addr">${esc(addrFull)} · ${s.distMi.toFixed(1)} mi</div>
+      <div class="tags">
+        ${s.cats.map(c => `<span class="tag${hitSet.has(c)?' hit':''}">${esc(c)}</span>`).join('')}
       </div>
       <div class="detail">
         <div class="k">Description</div>
         ${bothDesc ? `<p>${esc(bothDesc).replace(/\n/g,'<br>')}</p>` : '<p class="nope">Host didn\'t write a description — title and tags are all they listed.</p>'}
         ${s.phone ? `<div class="k">Phone</div><p>${esc(s.phone)}</p>` : ''}
         ${s.email ? `<div class="k">Email</div><p><a href="mailto:${esc(s.email)}">${esc(s.email)}</a></p>` : ''}
-        <div class="k">Open this stop</div>
+        <div class="k">Navigate here</div>
         <p><a href="${amapsUrl}" target="_blank" rel="noopener">Apple Maps ↗</a> &nbsp;·&nbsp; <a href="${gmapsUrl}" target="_blank" rel="noopener">Google Maps ↗</a></p>
       </div>`;
     list.appendChild(card);
-
-    // Walking/driving hop to next stop
-    if (i < currentStops.length - 1){
-      const next = currentStops[i+1];
-      const hopMi = distMi(s, next);
-      const hop = document.createElement('div');
-      const isWalk = hopMi <= (ctx.walkMeters / 1609.34);
-      hop.className = 'hop' + (isWalk ? ' walk' : '');
-      hop.innerHTML = `<span class="line"></span><span>${isWalk ? '🚶' : '🚗'} ${hopMi < 0.1 ? '<0.1' : hopMi.toFixed(1)} mi</span><span class="line"></span>`;
-      list.appendChild(hop);
-    }
   });
   if (blacklist.size){
     const bar = document.createElement('div');
@@ -794,13 +772,14 @@ $('#openGoogle').onclick = () => {
 };
 $('#openApple').onclick = () => {
   if (!currentStops.length) { toast('Generate a route first'); return; }
-  // Apple Maps only cleanly supports one daddr; multiple via "+to:+" isn't reliable.
-  // Strategy: open the FULL chain as saddr+daddr with "to:" syntax (works on most iOS versions).
-  // Fallback for anyone whose Apple Maps doesn't chain: single URL opens the first stop.
+  // Apple Maps URL scheme doesn't reliably chain multiple destinations — the "to:" syntax
+  // shows "directions not available" on modern iOS. Just open the FIRST leg cleanly; each
+  // stop card has its own Apple Maps link for the next leg.
   const saddr = encodeURIComponent(currentStart.addr);
-  const addrs = currentStops.map(s => `${s.street}, ${s.city} ${s.zip}`);
-  const chain = addrs.map(a => encodeURIComponent(a)).join('%20to:%20');
-  window.open(`http://maps.apple.com/?saddr=${saddr}&daddr=${chain}&dirflg=d`, '_blank');
+  const first = currentStops[0];
+  const daddr = encodeURIComponent(`${first.street}, ${first.city} ${first.zip}`);
+  window.open(`http://maps.apple.com/?saddr=${saddr}&daddr=${daddr}&dirflg=d`, '_blank');
+  if (currentStops.length > 1) toast('Apple Maps: opening leg 1 of ' + currentStops.length + '. Tap each stop card to open the next.');
 };
 
 // Tabs
