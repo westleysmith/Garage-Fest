@@ -246,9 +246,9 @@ details[open].more summary::before{content:"▾ "}
 
       <div class="btn-row" id="exportRow" hidden>
         <button id="openGoogle" class="btn">🗺️ Full route (Google Maps)</button>
-        <button id="openApple" class="btn ghost">🍎 Next stop (Apple)</button>
+        <button id="openApple" class="btn ghost">🍎 All stops (Apple)</button>
       </div>
-      <p id="mapsHint" class="muted-hint" hidden>Google Maps handles the whole route; Apple Maps only supports one leg at a time, so tap each stop in the list as you go.</p>
+      <p id="mapsHint" class="muted-hint" hidden>Google Maps routes the whole trip. Apple shows all stops but can't route a chain — tap any stop in Apple Maps to go there.</p>
 
       <div id="stops" class="stops"></div>
       <div id="empty" class="empty" hidden></div>
@@ -838,14 +838,13 @@ $('#openGoogle').onclick = () => {
 };
 $('#openApple').onclick = () => {
   if (!currentStops.length) { toast('Generate a route first'); return; }
-  // Apple Maps chokes on long string addresses ("can't connect to the server") because it
-  // tries to geocode them against Apple's server. Pass coordinates directly so it skips
-  // geocoding entirely.
+  // Apple Maps' Go button is disabled for multi-stop URLs, but the chain DOES display
+  // all destinations as a list you can scroll — useful for seeing the whole trip at once.
+  // Using coordinates (not strings) so it doesn't need to hit Apple's geocoder.
   const saddr = `${startPt.lat},${startPt.lng}`;
-  const first = currentStops[0];
-  const daddr = `${first.lat},${first.lng}`;
-  window.open(`https://maps.apple.com/?saddr=${saddr}&daddr=${daddr}&dirflg=d`, '_blank');
-  if (currentStops.length > 1) toast('Leg 1 of ' + currentStops.length + ' — tap each stop in the list for the next leg.');
+  const chain = currentStops.map(s => `${s.lat},${s.lng}`).join('+to:');
+  window.open(`https://maps.apple.com/?saddr=${saddr}&daddr=${chain}&dirflg=d`, '_blank');
+  if (currentStops.length > 1) toast("All stops shown — Apple can't route a chain. Tap any stop in Apple Maps to go there.");
 };
 
 // Tabs
