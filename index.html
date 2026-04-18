@@ -2,235 +2,388 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f0523d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Modesto GarageFest Route Planner</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E📍%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 <style>
-:root { --accent:#f0523d; --bg:#fafaf7; --card:#fff; --fg:#222; --muted:#666; --good:#2b8a3e; }
-*{box-sizing:border-box}
-html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-text-size-adjust:100%}
-.wrap{display:grid;grid-template-columns:360px 1fr;gap:12px;padding:12px;height:100vh}
-.panel{background:var(--card);border-radius:10px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:auto}
-.view-toggle{display:none}
-@media (max-width:900px){
-  .wrap{grid-template-columns:1fr;height:auto;padding:8px;gap:8px}
-  .panel{padding:12px;border-radius:8px}
-  /* Tabs: show one view at a time on mobile */
-  .view-toggle{display:flex;position:sticky;top:0;z-index:100;background:var(--bg);padding:4px 0 8px;gap:4px}
-  .view-toggle button{flex:1;padding:10px;font-size:15px;background:#eee;color:#444;border-radius:8px}
-  .view-toggle button.active{background:var(--accent);color:#fff}
-  body.view-map .panel{display:none}
-  body.view-map #map{height:calc(100vh - 70px);min-height:0}
-  body.view-list #map{display:none}
-  body.view-list .panel{min-height:calc(100vh - 70px)}
-  /* Bigger tap targets */
-  input[type=text],input[type=number]{font-size:16px;padding:10px}
-  .cat{padding:8px 6px}
-  .cat label{font-size:15px}
-  .cat select{font-size:14px;padding:6px}
-  button{padding:12px 14px;font-size:15px}
-  .stop{padding:12px;font-size:14px}
-  .stop .rm{font-size:24px;padding:4px 10px;min-width:36px}
-  .kw-tag{padding:6px 10px;font-size:13px}
-  h1{font-size:20px}
+:root{
+  --accent:#f0523d;
+  --accent-dark:#d64530;
+  --green:#2b8a3e;
+  --green-bg:#e6f4ea;
+  --bg:#faf8f3;
+  --card:#ffffff;
+  --fg:#1a1a1a;
+  --muted:#6b6b6b;
+  --line:#e8e4d8;
+  --chip:#f3efe4;
+  --radius:12px;
+  --radius-sm:8px;
+  --shadow:0 1px 3px rgba(26,26,26,.06), 0 1px 2px rgba(26,26,26,.04);
+  --shadow-md:0 4px 12px rgba(26,26,26,.08);
+  --safe-top:env(safe-area-inset-top);
+  --safe-bot:env(safe-area-inset-bottom);
 }
-h1{font-size:18px;margin:0 0 4px;color:var(--accent)}
-.sub{color:var(--muted);margin:0 0 14px;font-size:12px}
-label.blk{display:block;font-weight:600;margin:10px 0 4px;font-size:12px;text-transform:uppercase;color:#444;letter-spacing:.03em}
-input[type=text],input[type=number]{width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px}
-.cats{display:flex;flex-direction:column;gap:2px;max-height:none}
-.cat{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:4px 6px;border-radius:6px}
-.cat:hover{background:#f3f3ef}
-.cat label{cursor:pointer;user-select:none;font-size:13px}
-.cat .count{color:var(--muted);font-size:11px}
-.cat select{font-size:12px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;background:#fff}
-.row{display:flex;gap:8px;align-items:center;margin:6px 0}
-.row > *{flex:1}
-button{background:var(--accent);color:#fff;border:0;padding:10px 14px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;width:100%}
-button:hover{filter:brightness(1.08)}
-button.secondary{background:#444}
-.stops{margin-top:10px;display:flex;flex-direction:column;gap:6px}
-.stop{background:#f7f6f1;border-left:3px solid var(--accent);padding:8px 10px;border-radius:6px;font-size:13px;cursor:pointer}
-.stop:hover{background:#f0ede2}
-.stop .detail{display:none;margin-top:8px;padding-top:8px;border-top:1px dashed #ddd;font-size:12px;color:#333}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;-webkit-text-size-adjust:100%;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+
+/* ----- Layout ----- */
+.app{display:grid;grid-template-rows:auto 1fr;min-height:100vh;min-height:100dvh}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:calc(12px + var(--safe-top)) 16px 12px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
+.brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:17px}
+.brand .pin{color:var(--accent)}
+.meta{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;text-align:right;line-height:1.3}
+
+.tabs{display:none;position:sticky;top:calc(53px + var(--safe-top));background:var(--bg);z-index:40;padding:8px;gap:6px;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;padding:10px;border:0;background:var(--card);color:var(--muted);border-radius:var(--radius-sm);font-weight:600;font-size:14px;cursor:pointer;transition:.15s}
+.tabs button.active{background:var(--accent);color:#fff}
+
+.main{display:grid;grid-template-columns:400px 1fr;gap:12px;padding:12px;min-height:0}
+.panel{background:transparent;display:flex;flex-direction:column;gap:12px;overflow-y:auto;overflow-x:hidden;padding-bottom:20px;min-width:0}
+.map-wrap{position:relative;min-height:0;min-width:0}
+#map{width:100%;height:100%;border-radius:var(--radius);overflow:hidden;background:#eee;touch-action:none}
+
+/* ----- Cards ----- */
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.card-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;user-select:none}
+.card-head h2{margin:0;font-size:15px;font-weight:700}
+.card-head .chevron{transition:transform .2s;color:var(--muted);font-size:12px}
+.card.collapsed .card-head .chevron{transform:rotate(-90deg)}
+.card.collapsed .card-body{display:none}
+.card-body{padding:0 16px 16px;display:flex;flex-direction:column;gap:12px}
+.card-foot{padding:0 16px 14px;display:flex;gap:8px;flex-direction:column}
+
+/* ----- Form ----- */
+label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:6px}
+input[type=text],input[type=number]{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--card);font-size:15px;color:var(--fg);outline:none;transition:border-color .15s}
+input[type=text]:focus,input[type=number]:focus{border-color:var(--accent)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+.cats{display:flex;flex-direction:column;gap:2px}
+.cat{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;transition:.12s;border:1px solid transparent}
+.cat:hover{background:var(--chip)}
+.cat input{margin:0;accent-color:var(--accent);width:18px;height:18px;flex:0 0 18px}
+.cat .label{display:flex;align-items:center;gap:10px;font-size:14px;flex:1;min-width:0}
+.cat .count{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+.cat .seg{display:inline-flex;background:var(--chip);border-radius:6px;padding:2px;gap:2px}
+.cat .seg button{background:transparent;border:0;padding:3px 8px;font-size:11px;font-weight:600;border-radius:4px;color:var(--muted);cursor:pointer}
+.cat .seg button.on{background:var(--card);color:var(--accent);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.cat.off .seg{opacity:.35;pointer-events:none}
+
+details.more{border-top:1px solid var(--line);padding-top:12px;margin-top:4px}
+details.more summary{font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;list-style:none;padding:4px 0}
+details.more summary::-webkit-details-marker{display:none}
+details.more summary::before{content:"▸ ";font-size:10px}
+details[open].more summary::before{content:"▾ "}
+.kw-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.kw{background:var(--chip);border:1px solid transparent;border-radius:999px;padding:4px 10px;font-size:12px;cursor:pointer;user-select:none;color:var(--muted);transition:.12s}
+.kw.on{background:var(--accent);color:#fff}
+.switch{display:flex;align-items:center;gap:8px;font-size:13px;margin-top:10px}
+
+/* ----- Buttons ----- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 16px;background:var(--accent);color:#fff;border:0;border-radius:var(--radius-sm);font-size:15px;font-weight:600;cursor:pointer;text-decoration:none;transition:.12s;width:100%}
+.btn:hover{background:var(--accent-dark)}
+.btn:active{transform:scale(.985)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.ghost{background:var(--card);color:var(--fg);border:1px solid var(--line)}
+.btn.ghost:hover{background:var(--chip)}
+.btn.small{padding:8px 12px;font-size:13px;width:auto}
+.btn-row{display:flex;gap:8px}
+.btn-row .btn{flex:1}
+
+/* ----- Summary ----- */
+.summary{background:var(--card);border-radius:var(--radius);padding:12px 14px;box-shadow:var(--shadow);display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.summary .num{font-size:20px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;line-height:1.1}
+.summary .lab{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-top:2px}
+
+/* ----- Stops list ----- */
+.stops{display:flex;flex-direction:column;gap:8px}
+.stop{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 14px;cursor:pointer;transition:.12s;position:relative}
+.stop:hover{box-shadow:var(--shadow-md)}
+.stop.open{box-shadow:var(--shadow-md)}
+.stop .top{display:flex;align-items:flex-start;gap:10px}
+.stop .badge{flex:0 0 32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+.stop .body{flex:1;min-width:0}
+.stop .title{font-weight:600;font-size:15px;line-height:1.3;word-wrap:break-word}
+.stop .addr{color:var(--muted);font-size:12px;margin-top:2px;line-height:1.3}
+.stop .rm{position:absolute;top:10px;right:10px;width:28px;height:28px;border-radius:6px;background:transparent;color:#c33;border:0;font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-weight:400}
+.stop .rm:hover{background:#fde8e6}
+.stop .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:12px;color:var(--muted)}
+.stop .meta .dot{width:3px;height:3px;background:var(--muted);border-radius:50%;align-self:center}
+.stop .cluster-badge{display:inline-flex;align-items:center;gap:4px;background:var(--green-bg);color:var(--green);padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600}
+.stop .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.tag{background:var(--chip);border-radius:4px;padding:2px 7px;font-size:11px;color:var(--muted)}
+.tag.hit{background:var(--green-bg);color:var(--green);font-weight:600}
+.stop .detail{display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);font-size:13px}
 .stop.open .detail{display:block}
+.stop .detail .k{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-top:8px;font-weight:700}
 .stop .detail p{margin:4px 0}
-.stop .detail .k{color:var(--muted);font-weight:600;text-transform:uppercase;font-size:10px;letter-spacing:.04em;margin-top:6px}
-.stop .detail a{color:var(--accent);text-decoration:none}
+.stop .detail a{color:var(--accent);text-decoration:none;font-weight:600}
 .stop .detail a:hover{text-decoration:underline}
 .stop .detail .nope{color:#999;font-style:italic}
-.stop .title{font-weight:600}
-.stop .addr{color:var(--muted);font-size:12px}
-.stop .tags{margin-top:3px;display:flex;flex-wrap:wrap;gap:4px}
-.tag{background:#fff;border:1px solid #e0ddd3;border-radius:3px;padding:1px 6px;font-size:11px;color:#555}
-.tag.hit{background:#e6f4ea;border-color:#b7d9bf;color:var(--good);font-weight:600}
-.stop .score{color:var(--accent);font-weight:600;font-size:12px}
-.stop .hdr{display:flex;justify-content:space-between;gap:6px;align-items:center}
-.stop .rm{background:transparent;border:0;color:#c33;cursor:pointer;font-size:18px;line-height:1;padding:0 4px;width:auto;font-weight:700}
-.stop .rm:hover{color:#fff;background:#c33;border-radius:4px}
-.removed-bar{margin-top:8px;font-size:12px;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
-.removed-bar a{color:var(--accent);cursor:pointer;text-decoration:underline}
-#map{height:100%;min-height:400px;border-radius:10px;overflow:hidden;touch-action:none}
-.fit-btn{background:#fff;border:2px solid rgba(0,0,0,.2);border-radius:4px;padding:6px 10px;font:600 13px system-ui,sans-serif;cursor:pointer;color:#333;box-shadow:0 1px 3px rgba(0,0,0,.15)}
-.fit-btn:hover{background:#f5f5f5}
-.stats{background:#f3f0e8;padding:8px 10px;border-radius:6px;margin:10px 0;font-size:12px;color:#555}
-.inline{display:flex;gap:10px;align-items:center}
-.kw{font-size:11px;color:var(--muted);margin-left:4px}
-details{margin:10px 0;padding:8px;background:#f7f6f1;border-radius:6px}
-summary{cursor:pointer;font-weight:600;font-size:12px}
-.kw-list{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
-.kw-tag{background:#fff;border:1px solid #ddd;border-radius:3px;padding:2px 6px;font-size:11px;cursor:pointer;user-select:none}
-.kw-tag.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+.hop{font-size:11px;color:var(--muted);text-align:center;padding:0 12px;display:flex;align-items:center;gap:6px;justify-content:center}
+.hop .line{flex:1;height:1px;background:var(--line);max-width:40px}
+.hop.walk{color:var(--green)}
+
+.empty,.loading{text-align:center;padding:32px 16px;color:var(--muted);font-size:14px}
+.loading{display:flex;align-items:center;justify-content:center;gap:10px}
+.spinner{width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.removed-bar{padding:10px 14px;font-size:12px;color:var(--muted);text-align:center}
+.removed-bar a{color:var(--accent);cursor:pointer;font-weight:600;text-decoration:none}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--fg);color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;box-shadow:var(--shadow-md);z-index:1000;opacity:0;pointer-events:none;transition:.2s}
+.toast.show{opacity:1;bottom:28px}
+
+/* ----- Map controls ----- */
+.fit-btn{background:var(--card);border:2px solid rgba(0,0,0,.2);border-radius:6px;padding:8px 12px;font:600 13px system-ui;cursor:pointer;color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.fit-btn:hover{background:var(--chip)}
+.leaflet-top.leaflet-left{margin-top:12px}
+
+/* ----- Event ended banner ----- */
+.banner{background:#fff3cd;color:#856404;border-left:4px solid #f0ad4e;padding:10px 14px;border-radius:var(--radius-sm);font-size:13px}
+
+/* ----- Mobile ----- */
+@media (max-width:900px){
+  .tabs{display:flex}
+  .main{grid-template-columns:1fr;padding:8px;gap:8px}
+  body.view-map .panel{display:none}
+  body.view-map .map-wrap{height:calc(100dvh - 110px - var(--safe-top))}
+  body.view-list .map-wrap{display:none}
+  body.view-list .panel{max-height:none}
+  .summary .num{font-size:18px}
+  .grid2{grid-template-columns:1fr 1fr}
+  /* Bigger tap targets */
+  input[type=text],input[type=number]{padding:12px;font-size:16px}
+  .cat{padding:10px}
+  .btn{padding:13px 16px;font-size:15px}
+  .stop .rm{width:36px;height:36px;font-size:22px;top:8px;right:8px}
+}
+@media (min-width:901px){
+  .main{height:calc(100vh - 58px)}
+  .map-wrap{min-height:calc(100vh - 82px)}
+}
 </style>
 </head>
 <body class="view-list">
-<div class="view-toggle">
-  <button id="tabList" class="active">List</button>
-  <button id="tabMap">Map</button>
+
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><span class="pin">📍</span> GarageFest Planner</div>
+    <div class="meta" id="meta">Loading…</div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button id="tabList" class="active" role="tab">List</button>
+    <button id="tabMap" role="tab">Map</button>
+  </nav>
+
+  <main class="main">
+    <section class="panel" id="panel">
+
+      <div id="eventBanner" hidden></div>
+
+      <div class="card" id="settingsCard">
+        <div class="card-head" id="settingsHead">
+          <h2>Your trip</h2>
+          <span class="chevron">▾</span>
+        </div>
+        <div class="card-body">
+          <div>
+            <label>Start from</label>
+            <input id="start" type="text" placeholder="537 Terminal Ave, Modesto, CA" />
+          </div>
+          <div class="grid2">
+            <div>
+              <label>Max stops</label>
+              <input id="maxStops" type="number" value="20" min="1" max="50" />
+            </div>
+            <div>
+              <label>Radius (mi)</label>
+              <input id="maxRadius" type="number" value="3" min="0.5" max="15" step="0.5" />
+            </div>
+          </div>
+          <div>
+            <label>Categories</label>
+            <div id="cats" class="cats"></div>
+          </div>
+          <details class="more">
+            <summary>More options</summary>
+            <div class="switch"><input type="checkbox" id="weightBigness" checked> <span>Boost big / estate / multi-family sales</span></div>
+            <div class="switch"><input type="checkbox" id="weightCluster" checked> <span>Prefer walkable clusters (park once, hit several)</span></div>
+            <div class="kw-list" id="kwList"></div>
+            <div style="margin-top:10px" class="grid2">
+              <div>
+                <label>Min categories</label>
+                <input id="minCats" type="number" value="2" min="1" max="19" />
+              </div>
+              <div>
+                <label>Walk distance (ft)</label>
+                <input id="walkFt" type="number" value="1300" min="200" max="3000" step="100" />
+              </div>
+            </div>
+          </details>
+        </div>
+        <div class="card-foot">
+          <button id="gen" class="btn">Generate route</button>
+        </div>
+      </div>
+
+      <div class="summary" id="summary" hidden>
+        <div><div class="num" id="sumStops">—</div><div class="lab">Stops</div></div>
+        <div><div class="num" id="sumMiles">—</div><div class="lab">Miles driving</div></div>
+        <div><div class="num" id="sumClusters">—</div><div class="lab">Walk clusters</div></div>
+      </div>
+
+      <div class="btn-row" id="exportRow" hidden>
+        <button id="openApple" class="btn">🍎 Apple Maps</button>
+        <button id="openGoogle" class="btn ghost">🗺️ Google Maps</button>
+      </div>
+
+      <div id="loading" class="loading" hidden><span class="spinner"></span> Generating route…</div>
+      <div id="stops" class="stops"></div>
+      <div id="empty" class="empty" hidden></div>
+    </section>
+
+    <section class="map-wrap">
+      <div id="map"></div>
+    </section>
+  </main>
 </div>
-<div class="wrap">
-  <div class="panel">
-    <h1>GarageFest Route Planner</h1>
-    <p class="sub" id="meta">Loading…</p>
 
-    <label class="blk">Start address</label>
-    <input id="start" type="text" value="537 Terminal Ave, Modesto, CA" />
+<div class="toast" id="toast"></div>
 
-    <div class="row">
-      <div>
-        <label class="blk">Max stops</label>
-        <input id="maxStops" type="number" value="20" min="1" max="50" />
-      </div>
-      <div>
-        <label class="blk">Max radius <span class="kw">(mi)</span></label>
-        <input id="maxRadius" type="number" value="3" min="0.5" max="15" step="0.5" />
-      </div>
-    </div>
-
-    <label class="blk">Categories <span class="kw">(pick interest level)</span></label>
-    <div id="cats" class="cats"></div>
-
-    <details>
-      <summary>"Bigger sale" signals</summary>
-      <div class="kw-list" id="kwList"></div>
-      <label class="blk" style="margin-top:8px">Min # categories listed</label>
-      <input id="minCats" type="number" value="3" min="1" max="19" />
-      <div class="row" style="margin-top:6px">
-        <label style="display:flex;gap:6px;align-items:center;font-size:12px"><input type="checkbox" id="weightBigness" checked> Boost score by sale size</label>
-      </div>
-    </details>
-
-    <div id="stats" class="stats"></div>
-    <div class="row">
-      <button id="gen">Generate Route</button>
-    </div>
-    <div class="row">
-      <button id="gmaps" class="secondary">Open in Google Maps</button>
-      <button id="csv" class="secondary">Download CSV</button>
-    </div>
-
-    <div id="stops" class="stops"></div>
-  </div>
-
-  <div id="map"></div>
-</div>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script id="data" type="application/json">[{"id":"1220","title":"1308 Lorry Ave","description":"","description2":"","street":"1308 Lorry Ave","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6617451,"lng":-120.9703527,"cats":["Arts & Crafts","Household","Kitchen","Baby & Kid Items"]},{"id":"1156","title":"226 Jonhson St","description":"","description2":"","street":"226 Jonhson St","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6478023,"lng":-120.9912721,"cats":["Clothing","Electronics"]},{"id":"1210","title":"2821 garage sale toys, youth clothes random steals","description":"","description2":"","street":"2821 Stone Valley Street","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6722004,"lng":-120.9426662,"cats":["Household","Clothing","Books & Records","Electronics","Memorabilia"]},{"id":"1272","title":"4 Family Sale Our stuff could be Your stuff","description":"","description2":"","street":"401 Mensinger Avenue","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6592601,"lng":-120.9981844,"cats":["Household","Clothing","Kitchen","Books & Records","Collectibles"]},{"id":"1133","title":"A bit of everything","description":"","description2":"","street":"126 Corson Avenue","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6580411,"lng":-120.9925274,"cats":["Household","Clothing","Kitchen","Antiques","Tools"]},{"id":"1276","title":"A little bit of everything","description":"","description2":"","street":"1301 Grinnell Street","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6620756,"lng":-121.0027829,"cats":["Household","Clothing","Garden","Accessories & Jewelry"]},{"id":"1168","title":"Adams Family Sale","description":"","description2":"","street":"305 Camellia Way","city":"Modesto ca","zip":"95354","phone":"","email":"","website":"","lat":37.6418034,"lng":-120.9711502,"cats":["Outdoors","Toys & Games","Tools","Sports Equipment","Music"]},{"id":"1101","title":"Aguilar Garage Sale","description":"","description2":"","street":"1128 Nut Tree Lane","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6596511,"lng":-120.9255609,"cats":["Clothing","Toys & Games","Antiques","Sports Equipment","Baby & Kid Items"]},{"id":"1102","title":"Akre Garage Sale","description":"","description2":"","street":"1905 Skylane Way","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6765094,"lng":-121.0249298,"cats":["Household","Clothing","Kitchen","Baby & Kid Items"]},{"id":"1189","title":"Alina's Shop","description":"","description2":"","street":"729 Spindale Dr","city":"Modesto","zip":"95357","phone":"","email":"","website":"","lat":37.6500913,"lng":-120.9253673,"cats":["Household","Clothing","Toys & Games","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1181","title":"All must Go! Multi-Family Sale","description":"","description2":"","street":"3420 Polaris St","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6883371,"lng":-121.0016348,"cats":["Household","Outdoors","Clothing","Collectibles","Tools"]},{"id":"1104","title":"Ammon Garage Sale","description":"","description2":"","street":"1620 Cashmere Dr","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6683703,"lng":-120.9401128,"cats":["Clothing","Toys & Games","Collectibles","Electronics","Memorabilia"]},{"id":"1341","title":"Andy's tool and estate sale","description":"","description2":"","street":"4004 Drakeshire Dr","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.6967221,"lng":-120.9808995,"cats":["Household","Electronics","Tools","Auto Parts","Appliances"]},{"id":"1207","title":"Angel's chic on the cheap garage sale","description":"","description2":"","street":"1608 Eastwick Ct","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6679817,"lng":-120.9613681,"cats":["Household","Clothing","Books & Records","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1224","title":"Ann's Eclectic Garage Sale","description":"","description2":"","street":"3004 Shenandoah Way","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6568331,"lng":-120.9385907,"cats":["Household","Clothing","Kitchen","Electronics","Antiques"]},{"id":"1105","title":"Anselmo Garage Sale","description":"","description2":"","street":"1459 Stanford Ave #78","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6562735,"lng":-121.0075271,"cats":["Arts & Crafts","Household","Clothing","Toys & Games","Accessories & Jewelry"]},{"id":"1315","title":"Anything you might want garage sale","description":"","description2":"","street":"556 Codington Way","city":"Modesto","zip":"95357","phone":"","email":"","website":"","lat":37.6459943,"lng":-120.9214723,"cats":["Books & Records","Collectibles","Antiques","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1246","title":"Ari's Garage","description":"","description2":"","street":"1213 Lillian Drive","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6611132,"lng":-120.9328246,"cats":["Household","Clothing","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1231","title":"Athletic New w/ Tags","description":"","description2":"","street":"3112 Breezeway Dr","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6831927,"lng":-120.9313138,"cats":["Clothing","Accessories & Jewelry"]},{"id":"1166","title":"Auntie Josie's Shop","description":"","description2":"","street":"130 Palm Avenue","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6589163,"lng":-120.9920011,"cats":["Household","Clothing","Kitchen","Books & Records","Accessories & Jewelry"]},{"id":"1108","title":"Azavedo Garage Sale","description":"","description2":"","street":"422 Elmwood Ave","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6500175,"lng":-120.994733,"cats":["Household","Clothing","Kitchen"]},{"id":"1209","title":"Baby and toddler items galore","description":"","description2":"","street":"704 Rio Vista","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6539975,"lng":-120.960083,"cats":["Household","Clothing","Books & Records","Sports Equipment","Baby & Kid Items"]},{"id":"1110","title":"Backyard Sale","description":"","description2":"","street":"1434 Water St","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6645824,"lng":-120.9745017,"cats":["Arts & Crafts","Household","Clothing","Baby & Kid Items"]},{"id":"1241","title":"Bagels and Bows Estate Sale","description":"","description2":"","street":"805 Maud Kump Terrace","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6850885,"lng":-120.9831686,"cats":["Clothing","Books & Records","Antiques","Appliances","Accessories & Jewelry"]},{"id":"1259","title":"Beauty, skincare, books, and collectibles!","description":"","description2":"","street":"2444 Kaslin Drive","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6838934,"lng":-120.9514865,"cats":["Arts & Crafts","Household","Books & Records","Collectibles","Accessories & Jewelry"]},{"id":"1364","title":"Benefits Saving Lives Animal Rescue","description":"","description2":"","street":"3005 Napier Dr","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6823813,"lng":-121.0062847,"cats":["Household","Clothing","Toys & Games","Collectibles","Accessories & Jewelry"]},{"id":"1268","title":"Bernie and Jose","description":"","description2":"","street":"409 Severin Avenue","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6441219,"lng":-120.9700525,"cats":["Arts & Crafts","Clothing","Kitchen","Collectibles","Tools"]},{"id":"1361","title":"Best Prices No Junk Vast Variety of Treasures","description":"","description2":"","street":"3508 Glencrest Dr","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6784327,"lng":-120.9304326,"cats":["Household","Clothing","Books & Records","Collectibles","Antiques"]},{"id":"1316","title":"Best sale Ever","description":"","description2":"","street":"1319 Sunrise Ave","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.662311,"lng":-120.9853136,"cats":["Arts & Crafts","Clothing","Electronics","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1118","title":"Bethel Garage Sale","description":"","description2":"","street":"3601 Pelucca Lane","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6904684,"lng":-120.9632166,"cats":["Arts & Crafts","Household","Books & Records"]},{"id":"1270","title":"Big Jim's Big Sale","description":"","description2":"","street":"1602 Pimlico Dr","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6724992,"lng":-121.0196174,"cats":["Household","Clothing","Electronics","Tools","Sports Equipment"]},{"id":"1265","title":"Blue Moon antiques and collectibles","description":"","description2":"","street":"2232 Meta Ct","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.645777,"lng":-120.9560585,"cats":["Arts & Crafts","Collectibles","Memorabilia","Antiques"]},{"id":"1320","title":"Bobbi's Delights","description":"","description2":"","street":"329 Las Palmas Ave.","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6434641,"lng":-120.9791991,"cats":["Household","Outdoors","Kitchen","Memorabilia","Tools"]},{"id":"1121","title":"Boer Garage Sale","description":"","description2":"","street":"509 Riddle Ct","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.6924937,"lng":-120.987179,"cats":["Household","Toys & Games","Kitchen","Collectibles","Memorabilia"]},{"id":"1335","title":"Bonnie's Bargains","description":"","description2":"","street":"4608 Via Giardiano","city":"Modesto","zip":"95357","phone":"","email":"","website":"","lat":37.6650642,"lng":-120.9096873,"cats":["Outdoors","Antiques","Garden","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1195","title":"Boogies Sales ''","description":"","description2":"","street":"824 Kerr Ave","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6253739,"lng":-120.9712981,"cats":["Arts & Crafts","Household","Clothing","Auto Parts","Garden"]},{"id":"1170","title":"Book Blast!","description":"","description2":"","street":"3704 Dorado Court","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.6918891,"lng":-120.9888612,"cats":["Arts & Crafts","Books & Records","Collectibles","Memorabilia"]},{"id":"1336","title":"Books, clothes, miscellaneous","description":"","description2":"","street":"3604 Lookout Dr.","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6766647,"lng":-120.9283392,"cats":["Household","Clothing","Books & Records","Electronics","Baby & Kid Items"]},{"id":"1239","title":"Books, collectibles, RV","description":"","description2":"","street":"1317 Del Mar Ave.","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.659042,"lng":-121.013446,"cats":["Household","Books & Records","Collectibles","Memorabilia","Antiques"]},{"id":"1125","title":"Briton Garage Sale","description":"","description2":"","street":"1521 Ardmore Avenue","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6697463,"lng":-120.9991032,"cats":["Household","Clothing","Kitchen","Electronics","Garden"]},{"id":"1273","title":"Bryan and Angels Yard Sale","description":"","description2":"","street":"1334 Pearl Street","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6656625,"lng":-121.0140848,"cats":["Arts & Crafts","Books & Records","Antiques","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1128","title":"Burch family","description":"","description2":"","street":"124 Yosemite Meadows Dr","city":"Modesto","zip":"95357","phone":"","email":"","website":"","lat":37.6402999,"lng":-120.919805,"cats":["Household","Outdoors","Kitchen","Books & Records","Music"]},{"id":"1129","title":"Burroughs Garage Sale","description":"","description2":"","street":"1609 Wylma Way","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6751438,"lng":-121.0206563,"cats":["Household","Outdoors","Clothing","Tools","Sports Equipment"]},{"id":"1293","title":"Buy-R-Stuff","description":"","description2":"","street":"901 Wilma Dr","city":"Modesto","zip":"95351","phone":"","email":"","website":"","lat":37.6301302,"lng":-121.0288159,"cats":["Clothing","Collectibles","Electronics","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1131","title":"Byrr Garage Sale","description":"","description2":"","street":"1304 Mica Way","city":"modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6625513,"lng":-120.9418262,"cats":["Household","Clothing","Toys & Games","Collectibles","Baby & Kid Items"]},{"id":"1149","title":"C's Huge Yard Sale","description":"","description2":"","street":"2104 Terrance Way","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6737421,"lng":-120.9819623,"cats":["Arts & Crafts","Household","Clothing","Kitchen","Baby & Kid Items"]},{"id":"1279","title":"Camino Real Neighbors","description":"","description2":"","street":"3612 Camino Real","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.6912892,"lng":-121.0434091,"cats":["Household","Kitchen","Collectibles","Antiques","Tools"]},{"id":"1135","title":"Cardona Garage Sale","description":"","description2":"","street":"1509 Sandalwood Dr","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6677018,"lng":-121.0182468,"cats":["Household","Toys & Games","Books & Records","Garden","Music"]},{"id":"1136","title":"Carriger Garage Sale","description":"","description2":"","street":"1601 Idylwood Court","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6678939,"lng":-121.0207068,"cats":["Arts & Crafts","Household","Clothing","Electronics","Accessories & Jewelry"]},{"id":"1143","title":"Cerrillo Garage Sale","description":"","description2":"","street":"1829 Fallon Lane","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6859683,"lng":-120.9644675,"cats":["Household","Clothing","Toys & Games","Kitchen","Electronics"]},{"id":"1362","title":"Charlie's Garage Blow-Out","description":"","description2":"","street":"669 Geer Court","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6539159,"lng":-120.9958885,"cats":["Outdoors","Books & Records","Collectibles","Antiques","Garden"]},{"id":"1180","title":"Clarissa's Garage","description":"","description2":"","street":"448 Coleman Court","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6523459,"lng":-120.9995608,"cats":["Arts & Crafts","Clothing","Books & Records","Auto Parts","Baby & Kid Items"]},{"id":"1311","title":"Classroom and Home Decor Favorites","description":"","description2":"","street":"1409 Ramsgate Dr.","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6643935,"lng":-120.9460461,"cats":["Arts & Crafts","Household","Toys & Games","Kitchen","Books & Records"]},{"id":"1242","title":"Cleaning my garage out","description":"","description2":"","street":"1012 Whittier Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6737609,"lng":-121.0062049,"cats":["Household","Outdoors","Electronics","Garden","Baby & Kid Items"]},{"id":"1205","title":"Clothes toys lots of extras","description":"","description2":"","street":"932 Yellow Rd","city":"Modesto","zip":"95351","phone":"","email":"","website":"","lat":37.6183927,"lng":-120.9933678,"cats":["Household","Clothing","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1360","title":"Cobblestone Gated Community","description":"","description2":"","street":"2012 Cobblestone Manor","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6726321,"lng":-120.9418937,"cats":["Household","Clothing","Kitchen","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1112","title":"Collectibles from the 60's","description":"","description2":"","street":"1201 Carrie Ct","city":"Modesto","zip":"95358","phone":"","email":"","website":"","lat":37.6513853,"lng":-121.0342572,"cats":["Collectibles","Antiques"]},{"id":"1250","title":"Collectibles, Vintage, Children, Clothes, Housewares","description":"","description2":"","street":"2808 Stone Valley Street","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6719326,"lng":-120.94331,"cats":["Household","Clothing","Toys & Games","Kitchen","Baby & Kid Items"]},{"id":"1122","title":"Collectibles, vintage: glassware, clothes, toys","description":"","description2":"","street":"3413 Brunswick Street","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6878565,"lng":-121.0043231,"cats":["Clothing","Books & Records","Collectibles","Antiques","Baby & Kid Items"]},{"id":"1147","title":"Correia Garage Sale","description":"","description2":"","street":"4124 Gagos Dr #C","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.6997752,"lng":-121.0623764,"cats":["Arts & Crafts","Clothing","Kitchen","Tools"]},{"id":"1148","title":"Covarrubias Garage Sale","description":"","description2":"","street":"3405 Aqua Court Unit C","city":"modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6697463,"lng":-120.9991032,"cats":["Household","Clothing","Toys & Games","Baby & Kid Items"]},{"id":"1182","title":"Cucus clothes and toys sale","description":"","description2":"","street":"3337 Joshua Way","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6651587,"lng":-120.9319994,"cats":["Clothing","Toys & Games","Books & Records","Baby & Kid Items"]},{"id":"1151","title":"Cuen Garage Sale","description":"","description2":"","street":"1504 Del Monte Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6594782,"lng":-121.0171367,"cats":["Clothing","Electronics","Garden","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1154","title":"Davey Yard Sale","description":"","description2":"","street":"4018 Veranda Way","city":"Modesto","zip":"95357","phone":"","email":"","website":"","lat":37.6970158,"lng":-120.9676389,"cats":["Clothing","Toys & Games","Kitchen","Books & Records","Electronics"]},{"id":"1215","title":"Deals-N-Steals Paradise","description":"","description2":"","street":"1615 Dillon Drive","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6688045,"lng":-121.0265797,"cats":["Arts & Crafts","Household","Kitchen","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1331","title":"Disney, misc household","description":"","description2":"","street":"2020 Burlton Ct","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6676768,"lng":-120.9605754,"cats":["Arts & Crafts","Household","Clothing","Collectibles","Antiques"]},{"id":"1137","title":"Downsizing 2 A Studio Sale!","description":"","description2":"","street":"3612 Wild Palms Drive","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6661753,"lng":-120.9278652,"cats":["Household","Clothing","Kitchen","Memorabilia","Appliances"]},{"id":"1290","title":"E & 15th Street Finds","description":"","description2":"","street":"1509 E Street","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6397481,"lng":-120.9897718,"cats":["Clothing","Collectibles","Antiques","Garden","Accessories & Jewelry"]},{"id":"1332","title":"Eclectic Mix: Fun, Quirky Vintage & Modern Sale","description":"","description2":"","street":"1143 Grantland Ct","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6503093,"lng":-120.9781578,"cats":["Household","Books & Records","Collectibles","Antiques","Baby & Kid Items"]},{"id":"1216","title":"Eleasia","description":"","description2":"","street":"416 Downey Ave Unit 5a","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.645215,"lng":-120.988201,"cats":["Clothing"]},{"id":"1366","title":"Elmwood Court","description":"","description2":"","street":"115 Elmwood Court","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6503153,"lng":-120.9944749,"cats":["Household","Kitchen","Collectibles","Tools","Garden"]},{"id":"1292","title":"Emigrant Court Garage Sale","description":"","description2":"","street":"1441 Emigrant Ct","city":"Modesto","zip":"95358","phone":"","email":"","website":"","lat":37.6565901,"lng":-121.0372822,"cats":["Household","Kitchen","Collectibles","Electronics","Garden"]},{"id":"1313","title":"Emily's Garage Sale","description":"","description2":"","street":"329 Buena Vista Drive","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6433317,"lng":-120.9830978,"cats":["Household","Clothing","Books & Records","Sports Equipment","Garden"]},{"id":"1214","title":"Empower 8 and Chasing Nostalgia's Rewear Revolution","description":"","description2":"","street":"180 Leveland Ln Ste 1A","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6783024,"lng":-120.9955873,"cats":["Clothing","Toys & Games","Collectibles","Memorabilia","Music"]},{"id":"1164","title":"Escobedo Garage Sale","description":"","description2":"","street":"2544 River Rd.","city":"Modesto","zip":"95351","phone":"","email":"","website":"","lat":37.6166442,"lng":-120.949178,"cats":["Clothing","Books & Records","Antiques","Auto Parts","Baby & Kid Items"]},{"id":"1159","title":"Esme's Yard Sale","description":"","description2":"","street":"216 E Granger Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6670292,"lng":-120.9902507,"cats":["Household","Clothing","Kitchen","Books & Records","Accessories & Jewelry"]},{"id":"1155","title":"Estate Sale","description":"","description2":"","street":"517 North McClure Road","city":"Modesto","zip":"95357","phone":"","email":"","website":"","lat":37.6461121,"lng":-120.9304048,"cats":["Household","Clothing","Toys & Games","Kitchen","Collectibles"]},{"id":"1359","title":"Estate Sale","description":"","description2":"","street":"1523 College Ave.","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.666529,"lng":-121.0079181,"cats":["Kitchen","Books & Records","Collectibles","Antiques","Accessories & Jewelry"]},{"id":"1363","title":"Estate Sale","description":"","description2":"","street":"2400 Walnut Grove Way","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6726043,"lng":-120.9524659,"cats":["Collectibles","Antiques","Tools"]},{"id":"1221","title":"Estate Sale","description":"","description2":"","street":"1321 Mt Vernon Dr","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6772366,"lng":-121.0140268,"cats":["Clothing","Kitchen","Electronics","Sports Equipment","Appliances"]},{"id":"1191","title":"Estate\\Garage Sale","description":"","description2":"","street":"1820 Lancey Dr","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6683046,"lng":-120.9650204,"cats":["Household","Books & Records"]},{"id":"1107","title":"Everything must go garage sale","description":"","description2":"","street":"824 California Avenue","city":"Modesto","zip":"95351","phone":"","email":"","website":"","lat":37.6309323,"lng":-121.0184878,"cats":["Arts & Crafts","Household","Clothing","Kitchen","Books & Records"]},{"id":"1188","title":"Everything must go! Multiple families. Follow the signs.","description":"","description2":"","street":"3413 Joanna Dr.","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6577941,"lng":-120.9311155,"cats":["Arts & Crafts","Clothing","Books & Records","Antiques","Baby & Kid Items"]},{"id":"1169","title":"Faris Garage Sale","description":"","description2":"","street":"1916 E Orangeburg Ave","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6634457,"lng":-120.9630382,"cats":["Household","Clothing","Collectibles","Antiques","Tools"]},{"id":"1213","title":"Farrell/Houser Treasure Trove","description":"","description2":"","street":"204 Trask Lane","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6402334,"lng":-120.9524157,"cats":["Arts & Crafts","Household","Tools","Auto Parts"]},{"id":"1172","title":"Fay Garage Sale","description":"","description2":"","street":"5230 Shoemake Ave","city":"Modesto","zip":"95358","phone":"","email":"","website":"","lat":37.6669087,"lng":-121.0908553,"cats":["Household","Outdoors","Toys & Games","Kitchen"]},{"id":"1338","title":"Feaver Family Garage Sale","description":"","description2":"","street":"2029 Bridgewood Way","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6922612,"lng":-120.9603862,"cats":["Household","Toys & Games","Kitchen","Books & Records","Baby & Kid Items"]},{"id":"1218","title":"Fellowship Homes Senior Living Non-Profit Rummage Sale","description":"","description2":"","street":"1745 Eldena Way","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.670098,"lng":-120.987586,"cats":["Household","Clothing","Books & Records","Collectibles","Garden"]},{"id":"1187","title":"Flicks and Flights","description":"","description2":"","street":"946 Columbia Way","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.657017,"lng":-121.0034141,"cats":["Arts & Crafts","Books & Records","Music"]},{"id":"1162","title":"Four Family Sale","description":"","description2":"","street":"1125 Mt Vernon Drive","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6774653,"lng":-121.009386,"cats":["Household","Clothing","Toys & Games","Antiques","Auto Parts"]},{"id":"1199","title":"Fran's Garage","description":"","description2":"","street":"3009 Shenandoah Way","city":"MODESTO","zip":"95355","phone":"","email":"","website":"","lat":37.6572901,"lng":-120.9383074,"cats":["Household","Books & Records","Collectibles"]},{"id":"1282","title":"Free refreshments. Make offer.","description":"","description2":"","street":"1512 Robbie Ave.","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6787178,"lng":-121.0178666,"cats":["Household","Clothing","Toys & Games","Antiques","Accessories & Jewelry"]},{"id":"1267","title":"Free Stairlift For Two Story Home","description":"","description2":"","street":"2540 Black Walnut Drive","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.673274,"lng":-120.9492229,"cats":["Household"]},{"id":"1178","title":"Freitas Garage Sale","description":"","description2":"","street":"1104 Nut Tree Lane","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6583844,"lng":-120.9254178,"cats":["Household","Garden","Baby & Kid Items"]},{"id":"1197","title":"Front Yard Sale","description":"","description2":"","street":"1412 Highland Dr.","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6463773,"lng":-120.9726662,"cats":["Household","Clothing","Collectibles","Accessories & Jewelry"]},{"id":"1233","title":"Frugal Finds","description":"","description2":"","street":"2205 Newport Dr","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6749559,"lng":-120.9824244,"cats":["Arts & Crafts","Kitchen","Books & Records","Collectibles","Sports Equipment"]},{"id":"1244","title":"FunDay","description":"","description2":"","street":"2809 Shadow Glen Dr","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6758623,"lng":-120.943519,"cats":["Household","Books & Records","Collectibles"]},{"id":"1117","title":"Furniture, Kids Stuff, and Home Decor","description":"","description2":"","street":"622 Chabot Ave.","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6536629,"lng":-120.9854588,"cats":["Household","Toys & Games","Electronics","Auto Parts","Baby & Kid Items"]},{"id":"1294","title":"Furniture, Musical, Vinyls, This and That","description":"","description2":"","street":"334 Rosewood Ct","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6715804,"lng":-120.9980926,"cats":["Household","Books & Records","Garden","Music","Accessories & Jewelry"]},{"id":"1184","title":"Gannaway Garage Sale","description":"","description2":"","street":"1312 Silverado Dr.","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.6934753,"lng":-121.0137313,"cats":["Arts & Crafts","Household","Clothing","Toys & Games","Accessories & Jewelry"]},{"id":"1261","title":"Garage Sale","description":"","description2":"","street":"2716 Cedarbrook Court","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.664561,"lng":-120.9444041,"cats":["Arts & Crafts","Household","Clothing","Garden","Baby & Kid Items"]},{"id":"1225","title":"Garage Sale and More!","description":"","description2":"","street":"2125 Bridgewood Way","city":"MODESTO","zip":"95355","phone":"","email":"","website":"","lat":37.692195,"lng":-120.9583554,"cats":["Household","Clothing","Kitchen","Tools","Garden"]},{"id":"1130","title":"Garage Treasures","description":"","description2":"","street":"1524 Swarthmore Dr","city":"MODESTO","zip":"95358","phone":"","email":"","website":"","lat":37.6580916,"lng":-121.0464021,"cats":["Books & Records","Tools","Sports Equipment","Music"]},{"id":"1329","title":"Garage, home, yard and shop sale","description":"","description2":"","street":"1149 Lavender Ln","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6597864,"lng":-120.9709836,"cats":["Household","Outdoors","Clothing","Kitchen","Garden"]},{"id":"1346","title":"Garce's Super Sales","description":"","description2":"","street":"1124 Courtney Way","city":"Modesto","zip":"95358","phone":"","email":"","website":"","lat":37.6506403,"lng":-121.0322558,"cats":["Household","Clothing","Toys & Games","Baby & Kid Items"]},{"id":"1113","title":"Glenda's large yard sale","description":"","description2":"","street":"1229 Marilyn St.","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6614796,"lng":-120.9991788,"cats":["Household","Clothing","Tools","Accessories & Jewelry"]},{"id":"1357","title":"Good Stuff","description":"","description2":"","street":"1009 Alice St","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6474766,"lng":-121.005909,"cats":["Household","Clothing","Kitchen","Appliances","Garden"]},{"id":"1298","title":"Gotta Lotta","description":"","description2":"","street":"433 Enslen Ave","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6506548,"lng":-121.0008711,"cats":["Arts & Crafts","Clothing","Books & Records","Collectibles","Accessories & Jewelry"]},{"id":"1229","title":"Grandma's Downsizing","description":"","description2":"","street":"1406 Madrone Dr","city":"modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6689839,"lng":-121.0149266,"cats":["Household","Kitchen","Books & Records","Appliances"]},{"id":"1152","title":"Grannies Goods","description":"","description2":"","street":"1213 Scottsdale Way","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6605189,"lng":-120.9659607,"cats":["Household","Kitchen","Electronics","Auto Parts","Garden"]},{"id":"1458","title":"Great Stuff","description":"not available","description2":"","street":"922 Valerie Lane","city":"Modesto","zip":"95350","phone":"(209) 568-7035","email":"joapm23@gmail.com","website":"","lat":37.6586124,"lng":-121.0046569,"cats":["Household","Outdoors","Toys & Games","Kitchen","Collectibles"]},{"id":"1192","title":"Green Garage Sale","description":"","description2":"","street":"3024 Fredricksburg Way","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6593856,"lng":-120.9360901,"cats":["Household","Outdoors","Clothing","Toys & Games","Kitchen"]},{"id":"1193","title":"Green Garage Sale","description":"","description2":"","street":"324 Bodem St","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6499512,"lng":-120.9848933,"cats":["Books & Records","Collectibles","Antiques","Appliances","Baby & Kid Items"]},{"id":"1194","title":"Green's Yard Sale","description":"","description2":"","street":"1005 Ramona Avenue","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.657597,"lng":-120.9815641,"cats":["Household","Clothing","Toys & Games","Tools","Garden"]},{"id":"1201","title":"Handmade wood toys and creations","description":"","description2":"","street":"1513 Carnation Court","city":"MODESTO","zip":"95355","phone":"","email":"","website":"","lat":37.6597946,"lng":-120.9705457,"cats":["Toys & Games"]},{"id":"1202","title":"Hernandez Garage Sale","description":"","description2":"","street":"325 Yosemite Avenue","city":"Modesto","zip":"95351","phone":"","email":"","website":"","lat":37.6268209,"lng":-121.0080591,"cats":["Arts & Crafts","Household","Clothing","Books & Records","Accessories & Jewelry"]},{"id":"1206","title":"Herndon Garage Sale","description":"","description2":"","street":"627 Palm Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6592768,"lng":-120.9850633,"cats":["Household","Clothing","Baby & Kid Items"]},{"id":"1208","title":"Heune Garage Sale","description":"","description2":"","street":"1408 Carma Way","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.6944418,"lng":-121.0158375,"cats":["Household","Clothing","Kitchen","Accessories & Jewelry"]},{"id":"1333","title":"Home decor, a lot of lawn, Halloween items, clothes","description":"","description2":"","street":"1412 Carma Way","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.6944389,"lng":-121.0161063,"cats":["Household","Outdoors","Clothing","Toys & Games","Tools"]},{"id":"1327","title":"Home Goods & 31 Bags","description":"","description2":"","street":"1910 Monte Vista Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6748376,"lng":-121.0113814,"cats":["Arts & Crafts","Household","Clothing","Kitchen","Baby & Kid Items"]},{"id":"1275","title":"Huge 2 Family Household Sale","description":"","description2":"","street":"1105 W Union Ave","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.6931468,"lng":-121.0088154,"cats":["Clothing","Collectibles","Antiques","Appliances","Baby & Kid Items"]},{"id":"1236","title":"Huge Elmwood Court Yard Sale","description":"","description2":"","street":"201 Elmwood Ct.","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6503562,"lng":-120.9951492,"cats":["Household","Clothing","Toys & Games","Books & Records","Baby & Kid Items"]},{"id":"1167","title":"Huge Sherwood Forest Sale!","description":"","description2":"","street":"3021 Nottingham Lane","city":"MODESTO","zip":"95350","phone":"","email":"","website":"","lat":37.6824453,"lng":-120.9894694,"cats":["Household","Clothing","Kitchen","Antiques","Accessories & Jewelry"]},{"id":"1171","title":"Huge Yard Sale - baby/kid, plus size, furniture, household","description":"","description2":"","street":"215 Virginia Ave","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6478936,"lng":-121.0031134,"cats":["Household","Clothing","Books & Records","Garden","Baby & Kid Items"]},{"id":"1348","title":"Incredible Finds","description":"","description2":"","street":"3124 McHenry Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.684099,"lng":-120.993425,"cats":["Clothing","Collectibles","Memorabilia","Antiques","Accessories & Jewelry"]},{"id":"1217","title":"Jain Garage Sale","description":"","description2":"","street":"2113 Spring Oak Court","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6950234,"lng":-120.9590252,"cats":["Household","Clothing","Baby & Kid Items"]},{"id":"1305","title":"Jerseys, toys, clothes, bikes","description":"","description2":"","street":"916 West Union Avenue","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.6931551,"lng":-121.0061601,"cats":["Household","Clothing","Books & Records","Collectibles","Baby & Kid Items"]},{"id":"1223","title":"Joslin Garage Sale","description":"","description2":"","street":"1102 Del Verde Ave.","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6586797,"lng":-121.0199078,"cats":["Clothing","Kitchen","Books & Records","Collectibles","Garden"]},{"id":"1230","title":"Kennon Garage Sale","description":"","description2":"","street":"2821 Belharbour Drive","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6746847,"lng":-120.942973,"cats":["Household","Clothing","Collectibles","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1212","title":"Kitchenware and clothes","description":"","description2":"","street":"3841 Pan Am Dr","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.6953073,"lng":-121.0122261,"cats":["Clothing","Toys & Games","Kitchen","Tools"]},{"id":"1160","title":"Knick Knack Patty Whacks","description":"","description2":"","street":"441 Myrle Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6509716,"lng":-121.0066523,"cats":["Household","Clothing","Toys & Games","Memorabilia","Baby & Kid Items"]},{"id":"1144","title":"Liz's Treasures","description":"","description2":"","street":"3207 Caden Dr","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6845128,"lng":-120.9513425,"cats":["Household","Clothing","Kitchen","Garden","Accessories & Jewelry"]},{"id":"1238","title":"Looney Bin Sales/Black Label Comics/Family Favorites","description":"","description2":"","street":"2101 Moran Ave","city":"MODESTO","zip":"95354","phone":"","email":"","website":"","lat":37.6469883,"lng":-120.9598177,"cats":["Household","Clothing","Collectibles","Electronics","Memorabilia"]},{"id":"1240","title":"Lopez Garage Sale","description":"","description2":"","street":"125 Magnolia Ave","city":"Modezto","zip":"95354","phone":"","email":"","website":"","lat":37.6466305,"lng":-120.9966459,"cats":["Clothing","Books & Records","Collectibles","Memorabilia"]},{"id":"1141","title":"Lori's Barbies, Antiques, and More","description":"","description2":"","street":"3409 Grass Valley Ct","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6413713,"lng":-120.931568,"cats":["Arts & Crafts","Household","Toys & Games","Antiques","Garden"]},{"id":"1278","title":"Lots of Good Stuff Garage Sale","description":"","description2":"","street":"1225 Marilyn Street","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6612487,"lng":-120.9991641,"cats":["Household","Outdoors","Books & Records","Collectibles","Memorabilia"]},{"id":"1190","title":"Lots of Things","description":"","description2":"","street":"416 Goldrun Dr","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6433502,"lng":-120.9324184,"cats":["Arts & Crafts","Household","Clothing","Electronics","Baby & Kid Items"]},{"id":"1161","title":"Louie's Last Roundup","description":"","description2":"","street":"405 Broderick Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.676589,"lng":-120.9881002,"cats":["Household","Clothing","Electronics","Antiques","Appliances"]},{"id":"1150","title":"Lucia's Yard Sale","description":"","description2":"","street":"1944 Ralston Ct","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6722669,"lng":-120.9999977,"cats":["Arts & Crafts","Clothing","Toys & Games","Music","Accessories & Jewelry"]},{"id":"1243","title":"Luis Garage Sale","description":"","description2":"","street":"1508 Wakebridge Dr.","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.6910935,"lng":-121.0182545,"cats":["Clothing","Books & Records","Electronics","Antiques","Baby & Kid Items"]},{"id":"1264","title":"Mac's Garage Sale","description":"","description2":"","street":"3204 Vintage Drive","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.6925078,"lng":-121.0549076,"cats":["Household","Clothing","Toys & Games","Collectibles","Baby & Kid Items"]},{"id":"1247","title":"Magana Garage Sale","description":"","description2":"","street":"912 Sonoma Avenue","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.655457,"lng":-120.9480576,"cats":["Arts & Crafts","Household","Clothing","Books & Records","Baby & Kid Items"]},{"id":"1248","title":"Maisom Garage Sale","description":"","description2":"","street":"2149 Splendor Way","city":"Modesto","zip":"95357","phone":"","email":"","website":"","lat":37.6995111,"lng":-120.9593538,"cats":["Household","Toys & Games","Kitchen","Electronics","Baby & Kid Items"]},{"id":"1103","title":"Maria's Estate Sale","description":"","description2":"","street":"3832 Semallon Dr","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.69469,"lng":-121.0037502,"cats":["Clothing","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1174","title":"Maria's Huge Sale","description":"","description2":"","street":"417 Sundance Way","city":"MODESTO","zip":"95351","phone":"","email":"","website":"","lat":37.6430306,"lng":-121.0265255,"cats":["Household","Clothing","Electronics","Garden","Baby & Kid Items"]},{"id":"1281","title":"Marie's Garage Sale","description":"","description2":"","street":"812 Fernridge Ct","city":"Modesto","zip":"95351","phone":"","email":"","website":"","lat":37.6173698,"lng":-120.962583,"cats":["Arts & Crafts","Household","Toys & Games"]},{"id":"1185","title":"Marilyn's Garage Sale","description":"","description2":"","street":"1626 Teakwood Dr","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.668967,"lng":-121.0193835,"cats":["Household","Clothing","Kitchen","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1183","title":"Marilyn's Memories","description":"","description2":"","street":"1234 Marilyn Street","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6616791,"lng":-120.9986595,"cats":["Household","Clothing","Collectibles","Memorabilia","Antiques"]},{"id":"1249","title":"Marin's Garage","description":"","description2":"","street":"404 Coralwood Road","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.6952418,"lng":-120.9894021,"cats":["Arts & Crafts","Books & Records","Auto Parts","Appliances","Baby & Kid Items"]},{"id":"1251","title":"Marks Garage Sale","description":"","description2":"","street":"413 Norwegian Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6713423,"lng":-120.9882248,"cats":["Household","Kitchen","Electronics","Tools","Appliances"]},{"id":"1252","title":"Marquez Garage Sale","description":"","description2":"","street":"3805 Dragoo Park Dr","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.6938952,"lng":-120.9851003,"cats":["Arts & Crafts","Clothing","Garden"]},{"id":"1253","title":"Marshall Garage Sale","description":"","description2":"","street":"510 Auburn St.","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6513829,"lng":-120.9838482,"cats":["Clothing","Books & Records","Collectibles","Electronics","Accessories & Jewelry"]},{"id":"1254","title":"Martin Garage Sale","description":"","description2":"","street":"1416 Remington Place","city":"Modesto","zip":"95358","phone":"","email":"","website":"","lat":37.6550275,"lng":-121.0418258,"cats":["Clothing","Toys & Games","Books & Records","Sports Equipment","Baby & Kid Items"]},{"id":"1262","title":"Matteucci Garage Sale","description":"","description2":"","street":"2501 Fremont Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6773752,"lng":-121.002852,"cats":["Household","Outdoors","Clothing","Kitchen","Collectibles"]},{"id":"1255","title":"MDC Family Garage","description":"","description2":"","street":"1409 W Rumble Rd","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6823714,"lng":-121.0140589,"cats":["Arts & Crafts","Books & Records","Auto Parts","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1266","title":"Mehra Garage Sale","description":"","description2":"","street":"1341 College Ave.","city":"modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6634771,"lng":-121.0081091,"cats":["Household","Appliances"]},{"id":"1146","title":"Meza's Yard Sale","description":"","description2":"","street":"311 La Loma Ave","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6438352,"lng":-120.986852,"cats":["Clothing","Books & Records","Antiques","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1514","title":"Mike & Nancy's Garage Sale Paradise","description":"not available","description2":"","street":"3725 Wichita Way","city":"Modesto","zip":"95357","phone":"","email":"","website":"","lat":37.6514307,"lng":-120.924921,"cats":["Accessories & Jewelry","Household","Clothing","Antiques","Baby & Kid Items"]},{"id":"1177","title":"Mike's Yard Sale","description":"","description2":"","street":"1824 Saratoga Drive","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6713257,"lng":-121.0181029,"cats":["Household","Clothing","Toys & Games","Kitchen","Baby & Kid Items"]},{"id":"1119","title":"Miller Yard Sale","description":"","description2":"","street":"1705 Miller Ave","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6402556,"lng":-120.9683188,"cats":["Arts & Crafts","Household","Clothing","Kitchen"]},{"id":"1323","title":"Miscellaneous Everything!","description":"","description2":"","street":"2012 Monte Carlo Ct","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6736448,"lng":-121.0083687,"cats":["Household","Outdoors","Clothing","Kitchen","Books & Records"]},{"id":"1175","title":"Miss Match","description":"","description2":"","street":"1307 Sycamore Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6624436,"lng":-120.9982107,"cats":["Antiques","Baby & Kid Items"]},{"id":"1126","title":"Mom's Estate Sale","description":"","description2":"","street":"2621 Prescott Road SPC 127","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.679555,"lng":-121.033855,"cats":["Arts & Crafts","Household","Collectibles","Tools","Appliances"]},{"id":"1260","title":"More for your Buck","description":"","description2":"","street":"2113 Geneva Drive","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6743828,"lng":-121.0168561,"cats":["Household","Clothing","Toys & Games","Books & Records","Collectibles"]},{"id":"1345","title":"Moving Sale","description":"","description2":"","street":"1900 Berryessa Drive","city":"Modesto","zip":"95358","phone":"","email":"","website":"","lat":37.6475691,"lng":-121.0363984,"cats":["Arts & Crafts","Household","Toys & Games","Books & Records","Electronics"]},{"id":"1349","title":"Moving Sale","description":"","description2":"","street":"307 Frazine Rd","city":"Modesto","zip":"95357","phone":"","email":"","website":"","lat":37.6427999,"lng":-120.9122588,"cats":["Arts & Crafts","Clothing","Books & Records","Collectibles","Baby & Kid Items"]},{"id":"1258","title":"Moving Sale","description":"","description2":"","street":"805 Panoche Drive","city":"Modesto","zip":"95358","phone":"","email":"","website":"","lat":37.6464551,"lng":-121.0459174,"cats":["Arts & Crafts","Clothing","Auto Parts","Appliances","Baby & Kid Items"]},{"id":"1343","title":"Moving Sale","description":"","description2":"","street":"1736 Milestone Circle","city":"Modesto","zip":"95357","phone":"","email":"","website":"","lat":37.6988334,"lng":-120.9684684,"cats":["Household","Sports Equipment","Appliances","Garden","Baby & Kid Items"]},{"id":"1342","title":"Moving Sale","description":"","description2":"","street":"1325 Palomar Way","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6625839,"lng":-120.9735497,"cats":["Household","Tools","Accessories & Jewelry"]},{"id":"1288","title":"MOVING SALE! Naraghi Lakes!","description":"","description2":"","street":"3317 Hashem Dr","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6868379,"lng":-120.9607305,"cats":["Household","Books & Records","Antiques","Tools","Garden"]},{"id":"1302","title":"Multi Family and Moving Sale","description":"","description2":"","street":"224 Eagle Court","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6762177,"lng":-120.9903576,"cats":["Arts & Crafts","Clothing","Books & Records","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1352","title":"Multi Family Yard Sale - Kitchen Items, Hello Kitty, Toys, Clothes, New Items","description":"","description2":"","street":"924 East Fairmont Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6570053,"lng":-120.9817443,"cats":["Household","Clothing","Kitchen","Electronics","Baby & Kid Items"]},{"id":"1271","title":"Multi-home yard sale","description":"","description2":"","street":"1233 Cedar Creek Ct","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6616581,"lng":-120.923391,"cats":["Household","Toys & Games","Kitchen","Collectibles","Electronics"]},{"id":"1304","title":"Multiple family Sale","description":"","description2":"","street":"1404 Silverado Drive","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.6931579,"lng":-121.015887,"cats":["Household","Clothing","Kitchen","Collectibles","Accessories & Jewelry"]},{"id":"1351","title":"My Moving Sale: Household, Tools, Crafting, Area Rugs","description":"","description2":"","street":"2013 Mather Drive","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6848625,"lng":-121.0292076,"cats":["Arts & Crafts","Household","Clothing","Collectibles","Tools"]},{"id":"1237","title":"My Treasures can be your Treasures","description":"","description2":"","street":"208 Fresno Ave.","city":"Modesto","zip":"95351","phone":"","email":"","website":"","lat":37.629138,"lng":-121.0015179,"cats":["Household","Clothing","Toys & Games","Collectibles","Baby & Kid Items"]},{"id":"1219","title":"Nani's' Garage Sale","description":"","description2":"","street":"1616 Fernandes St","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6863566,"lng":-120.969044,"cats":["Household","Clothing","Toys & Games","Sports Equipment","Auto Parts"]},{"id":"1222","title":"Nettie and Gerry's Moving Sale","description":"","description2":"","street":"216 Rowland Ave","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6411772,"lng":-120.97292,"cats":["Household","Tools","Sports Equipment","Appliances","Garden"]},{"id":"1226","title":"New jewelry, misc house wares, Barbies, brand new laminate flooring","description":"","description2":"","street":"1334 Sarah Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6624996,"lng":-120.9822724,"cats":["Household","Clothing","Books & Records","Collectibles","Accessories & Jewelry"]},{"id":"1232","title":"Nina's Garage & Collectibles Sale","description":"","description2":"","street":"920 Ramona Avenue","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6561085,"lng":-120.9810835,"cats":["Household","Toys & Games","Collectibles","Antiques","Sports Equipment"]},{"id":"1134","title":"Normandy Park","description":"","description2":"","street":"1236 W Roseburg Ave Unit C","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.659393,"lng":-121.011225,"cats":["Household","Accessories & Jewelry"]},{"id":"1301","title":"Normandy Park Commmunity Garage Sale","description":"","description2":"","street":"1232-D W Roseburg Ave.","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6603182,"lng":-121.0075768,"cats":["Household","Clothing","Toys & Games","Kitchen","Books & Records"]},{"id":"1145","title":"North Olive Yard Sale","description":"","description2":"","street":"416 North Olive Avenue","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6501211,"lng":-121.005011,"cats":["Clothing","Toys & Games","Garden","Music","Baby & Kid Items"]},{"id":"1280","title":"Nunes Garage Sale","description":"","description2":"","street":"1400 Villette Ct","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.6990214,"lng":-121.0151849,"cats":["Arts & Crafts","Clothing","Collectibles","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1116","title":"Odds & Ends","description":"","description2":"","street":"2736 El Pasado Dr","city":"MODESTO","zip":"95354","phone":"","email":"","website":"","lat":37.6447458,"lng":-120.9435101,"cats":["Household","Kitchen","Appliances"]},{"id":"1358","title":"One Man's Treasure","description":"","description2":"","street":"2809 Castlewood Ct.","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.680803,"lng":-120.9322317,"cats":["Arts & Crafts","Clothing","Collectibles","Antiques","Appliances"]},{"id":"1186","title":"Pam's Pad","description":"","description2":"","street":"206 Las Flores Ave","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6408007,"lng":-120.9804466,"cats":["Household","Toys & Games","Kitchen","Collectibles","Tools"]},{"id":"1284","title":"Paras Garage Sale","description":"","description2":"","street":"1808 Butternut Ct","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6698621,"lng":-120.9631562,"cats":["Collectibles","Antiques","Tools","Garden"]},{"id":"1285","title":"Parker Garage Sale","description":"","description2":"","street":"823 Enslen Ave","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6552799,"lng":-121.0009881,"cats":["Outdoors","Toys & Games","Collectibles","Antiques","Tools"]},{"id":"1286","title":"Parker's Tools & More","description":"","description2":"","street":"1809 Clarence Drive","city":"MODESTO","zip":"95358","phone":"","email":"","website":"","lat":37.6504065,"lng":-121.0361944,"cats":["Household","Outdoors","Electronics","Sports Equipment","Auto Parts"]},{"id":"1138","title":"Pearson's Junk","description":"","description2":"","street":"1561 Grimes Ave","city":"Modesto","zip":"95358","phone":"","email":"","website":"","lat":37.6193523,"lng":-121.0444443,"cats":["Outdoors","Collectibles","Tools","Auto Parts"]},{"id":"1289","title":"Perreira Garage Sale","description":"","description2":"","street":"2802 Canyon Dr","city":"Modesto","zip":"95351","phone":"","email":"","website":"","lat":37.613041,"lng":-120.9427676,"cats":["Clothing","Toys & Games","Kitchen","Baby & Kid Items"]},{"id":"1228","title":"Plants for sale","description":"","description2":"","street":"3820 Felkirk Way","city":"modesto","zip":"95356","phone":"","email":"","website":"","lat":37.6951042,"lng":-121.0161436,"cats":["Household","Kitchen","Collectibles","Garden"]},{"id":"1234","title":"Plushy, Collectables,Comics, and More!","description":"","description2":"","street":"1201 Sycamore Avenue","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6604347,"lng":-120.9981592,"cats":["Arts & Crafts","Clothing","Collectibles","Memorabilia","Sports Equipment"]},{"id":"1291","title":"Pope Garage Sale","description":"","description2":"","street":"1508 Raquel Ln","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6655282,"lng":-120.9410286,"cats":["Outdoors","Toys & Games","Tools","Sports Equipment","Music"]},{"id":"1263","title":"Pottery, Art Supplies, Tools and More","description":"","description2":"","street":"417 Virginia Avenue","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6501142,"lng":-121.003099,"cats":["Arts & Crafts","Clothing","Books & Records","Tools","Accessories & Jewelry"]},{"id":"1176","title":"Pre-Moving Sale","description":"","description2":"","street":"1404 Clevenger Drive","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.6950839,"lng":-121.0159095,"cats":["Household","Outdoors","Kitchen","Tools","Garden"]},{"id":"1295","title":"Princevalle Garage Sale","description":"","description2":"","street":"3212 Smokehouse Ave","city":"Modesto ca 95357","zip":"95356","phone":"","email":"","website":"","lat":37.6978307,"lng":-121.055484,"cats":["Household","Clothing","Kitchen","Appliances","Accessories & Jewelry"]},{"id":"1124","title":"Queer Findz/clothes/ exercise equipment/household items","description":"","description2":"","street":"164 Floyd Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6778695,"lng":-120.9912771,"cats":["Household","Outdoors","Clothing","Sports Equipment","Music"]},{"id":"1299","title":"Ramirez Garage Sale","description":"","description2":"","street":"2561 Guadalajara Drive","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6789069,"lng":-120.9482179,"cats":["Arts & Crafts","Household","Clothing","Sports Equipment","Baby & Kid Items"]},{"id":"1109","title":"Rebecca & Justin's Candles & Clutter","description":"","description2":"","street":"3805 Spring Oak Drive","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6930648,"lng":-120.9601598,"cats":["Arts & Crafts","Outdoors","Memorabilia","Antiques","Appliances"]},{"id":"1354","title":"Rich n Dee's Spring Cleanout Sale","description":"","description2":"","street":"120o Norwegian Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6708654,"lng":-120.9928587,"cats":["Household","Clothing","Antiques","Appliances","Baby & Kid Items"]},{"id":"1306","title":"Ridge Garage Sale","description":"","description2":"","street":"1928 Temescal Dr","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6723187,"lng":-120.943837,"cats":["Clothing","Collectibles","Electronics","Antiques","Tools"]},{"id":"1308","title":"Rios Family Yard Sale","description":"","description2":"","street":"2544 Beatrice Ln","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6678469,"lng":-120.9484301,"cats":["Arts & Crafts","Household","Outdoors","Clothing","Kitchen"]},{"id":"1312","title":"Ruiz Garage Sale","description":"","description2":"","street":"2029 La Villa Rose Ct","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6740037,"lng":-120.9999211,"cats":["Household","Outdoors","Clothing","Sports Equipment"]},{"id":"1100","title":"Saddles, clothes, appliances & more","description":"","description2":"","street":"1442 Water Street","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6647316,"lng":-120.9745141,"cats":["Outdoors","Clothing","Sports Equipment","Appliances"]},{"id":"1317","title":"Santana Garage Sale","description":"","description2":"","street":"912 Mercy Ave","city":"Modesto","zip":"95358","phone":"","email":"","website":"","lat":37.6476106,"lng":-121.0443627,"cats":["Clothing","Toys & Games","Books & Records","Tools"]},{"id":"1318","title":"Sauls Garage Sale","description":"","description2":"","street":"7124 Beltis Drive","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.7442073,"lng":-121.0026276,"cats":["Household","Clothing","Collectibles","Memorabilia"]},{"id":"1321","title":"Schmierer Garage Sale","description":"","description2":"","street":"1005 El Vecino Avenue","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6578135,"lng":-120.9804316,"cats":["Household","Outdoors","Clothing","Books & Records","Sports Equipment"]},{"id":"1322","title":"Schultz Garage Sale","description":"","description2":"","street":"1706 Carlton Avenue","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6689933,"lng":-121.0036088,"cats":["Clothing","Books & Records","Collectibles","Tools","Sports Equipment"]},{"id":"1211","title":"sea glass jewerly and crafts","description":"","description2":"","street":"415 Bonita Ave","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6437698,"lng":-120.9808711,"cats":["Arts & Crafts","Household","Accessories & Jewelry"]},{"id":"1324","title":"Serrano Garage Sale","description":"","description2":"","street":"144 Village Rd","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6406071,"lng":-120.9794185,"cats":["Household","Clothing","Toys & Games","Kitchen","Tools"]},{"id":"1326","title":"Shanks Garage Sale","description":"","description2":"","street":"215 Elmwood Court","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6503477,"lng":-120.9958437,"cats":["Household","Kitchen","Collectibles","Electronics","Memorabilia"]},{"id":"1328","title":"Sherry's Awesome Sale","description":"","description2":"","street":"412 Enslen Park Ct","city":"Modesto","zip":"95345","phone":"","email":"","website":"","lat":37.65149299999999,"lng":-120.9988298,"cats":["Clothing","Books & Records","Collectibles","Appliances","Accessories & Jewelry"]},{"id":"1165","title":"Shoes, Toys, Collectibles & Cool Stuff!","description":"","description2":"","street":"3709 Pelucca Ln","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6918918,"lng":-120.9632142,"cats":["Household","Clothing","Toys & Games","Collectibles","Sports Equipment"]},{"id":"1115","title":"Shon's Garage Sale","description":"","description2":"","street":"3108 Clogston Way","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6397133,"lng":-120.936828,"cats":["Household","Outdoors","Toys & Games","Kitchen","Baby & Kid Items"]},{"id":"1506","title":"Shop here FIRST","description":"not available","description2":"","street":"3508 Glencrest Dr","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6784335,"lng":-120.9304534,"cats":["Clothing","Books & Records","Collectibles","Memorabilia","Sports Equipment"]},{"id":"1283","title":"Silveira Garage Sale","description":"","description2":"","street":"1913 E Rumble Road","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6817774,"lng":-120.9645041,"cats":["Household","Clothing"]},{"id":"1368","title":"Sister's Princess House Crystal and much more","description":"","description2":"","street":"2801 Carmella Way","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6695964,"lng":-120.9434254,"cats":["Arts & Crafts","Household","Clothing","Toys & Games","Kitchen"]},{"id":"1350","title":"Solano Circle Yard Sale","description":"","description2":"","street":"1309 Solano Cir","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6637325,"lng":-120.9497164,"cats":["Household","Clothing","Kitchen","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1325","title":"Sols Sale","description":"","description2":"","street":"1334 Sarah Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6624996,"lng":-120.9822724,"cats":["Household","Clothing","Kitchen","Memorabilia","Accessories & Jewelry"]},{"id":"1365","title":"Something for Everyone","description":"","description2":"","street":"1824 Hagstrom Ct","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6676878,"lng":-120.9648681,"cats":["Household","Clothing","Toys & Games","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1300","title":"Something for everyone","description":"","description2":"","street":"2116 Rasmussen Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6745039,"lng":-121.0264496,"cats":["Household","Clothing","Books & Records","Electronics","Baby & Kid Items"]},{"id":"1297","title":"Sonie's Treasures","description":"","description2":"","street":"1407 E Orangeburg Ave","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6637598,"lng":-120.9729301,"cats":["Arts & Crafts","Household","Clothing","Antiques","Garden"]},{"id":"1127","title":"Sparkles Extravaganza","description":"","description2":"","street":"1438 Water Street","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6647252,"lng":-120.974569,"cats":["Arts & Crafts","Household","Clothing","Electronics","Appliances"]},{"id":"1200","title":"Spring Clean Yard Sale","description":"","description2":"","street":"2009 Sherwood Ave.","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6730589,"lng":-120.9989215,"cats":["Household","Clothing","Toys & Games","Kitchen"]},{"id":"1307","title":"Spring cleaning sale","description":"","description2":"","street":"409 Emerson Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6810661,"lng":-120.9881923,"cats":["Household","Clothing","Electronics","Tools","Baby & Kid Items"]},{"id":"1111","title":"Spring cleaning, awesome finds!","description":"","description2":"","street":"605 Fall River Dr","city":"Modesto","zip":"95351","phone":"","email":"","website":"","lat":37.610086,"lng":-121.0011002,"cats":["Arts & Crafts","Household","Clothing","Kitchen","Baby & Kid Items"]},{"id":"1257","title":"Spring fling","description":"","description2":"","street":"3725 Spring Oak Drive","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.692515,"lng":-120.9601473,"cats":["Arts & Crafts","Household","Clothing","Books & Records","Collectibles"]},{"id":"1106","title":"Stacey's Yard Sale","description":"","description2":"","street":"2109 Steinbeck Dr","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.7030162,"lng":-121.0331069,"cats":["Household","Clothing","Books & Records","Electronics","Garden"]},{"id":"1330","title":"Starlings Nest Queer Market","description":"","description2":"","street":"3007 E Orangeburg Ave","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6637896,"lng":-120.938832,"cats":["Arts & Crafts","Household","Clothing","Books & Records","Accessories & Jewelry"]},{"id":"1139","title":"Storage Auction Finds","description":"","description2":"","street":"2039 Lance St","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6488003,"lng":-120.9604674,"cats":["Arts & Crafts","Clothing","Kitchen","Books & Records","Auto Parts"]},{"id":"1337","title":"Storage Treasure Finds","description":"","description2":"","street":"1917 Dartmouth Ct","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6726714,"lng":-121.0058151,"cats":["Clothing","Books & Records","Antiques","Appliances","Baby & Kid Items"]},{"id":"1277","title":"Summer Sale","description":"","description2":"","street":"1628 Brentwood Ct","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6794475,"lng":-121.0209446,"cats":["Household","Outdoors","Collectibles","Electronics","Accessories & Jewelry"]},{"id":"1173","title":"Super Yard Sale | Dream Center","description":"","description2":"","street":"1105 S Carpenter Road","city":"Modesto","zip":"95351","phone":"","email":"","website":"","lat":37.6273229,"lng":-121.0308622,"cats":["Clothing","Antiques","Appliances","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1123","title":"SusieDoll's Electric Eclectic - Vintage Clothes, Jewelry & More","description":"","description2":"","street":"2929 Alcott Court","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6680376,"lng":-120.9398996,"cats":["Arts & Crafts","Household","Clothing","Books & Records","Accessories & Jewelry"]},{"id":"1334","title":"Swanger Garage Sale","description":"","description2":"","street":"908 College Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6557657,"lng":-121.0072313,"cats":["Household","Toys & Games","Sports Equipment","Appliances","Garden"]},{"id":"1339","title":"Tejeda Garage Sale","description":"","description2":"","street":"1115 W Granger Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6679292,"lng":-121.0082524,"cats":["Household","Clothing","Kitchen","Books & Records","Accessories & Jewelry"]},{"id":"1314","title":"Terry and Eva's Crazy Good Garage Sale","description":"","description2":"","street":"2732 El Pasado Drive","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6447444,"lng":-120.9436446,"cats":["Household","Clothing","Books & Records","Collectibles","Accessories & Jewelry"]},{"id":"1099","title":"Terry's Treasures","description":"","description2":"","street":"1825 Fallon Lane","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6859641,"lng":-120.9647625,"cats":["Household","Outdoors","Clothing","Toys & Games","Kitchen"]},{"id":"1132","title":"The Cabrera's Declutter Fest","description":"","description2":"","street":"3813 Wilkesboro Ave","city":"Modesto","zip":"95357","phone":"","email":"","website":"","lat":37.6444968,"lng":-120.9236922,"cats":["Household","Clothing","Toys & Games","Collectibles","Antiques"]},{"id":"1140","title":"The GOAT Antiques, Vintage and Collectibles","description":"","description2":"","street":"920 Reisling Drive","city":"Modesto","zip":"95351","phone":"","email":"","website":"","lat":37.615498,"lng":-120.9599466,"cats":["Toys & Games","Collectibles","Antiques","Sports Equipment","Accessories & Jewelry"]},{"id":"1340","title":"Thomas Garage Sale","description":"","description2":"","street":"1509 Dulwich Dr","city":"Modesto","zip":"95358","phone":"","email":"","website":"","lat":37.6574089,"lng":-121.0459649,"cats":["Household"]},{"id":"1235","title":"Tillycrafts","description":"","description2":"","street":"2317 Steinbeck Dr","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.7035681,"lng":-121.0366022,"cats":["Arts & Crafts","Clothing","Accessories & Jewelry"]},{"id":"1353","title":"Together/Gathering Garage Sale","description":"","description2":"","street":"1929 Destiny Way","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.700124,"lng":-121.0285621,"cats":["Household","Outdoors","Clothing","Books & Records","Tools"]},{"id":"1303","title":"Toiletries","description":"","description2":"","street":"1400 Clevenger Drive","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.6950377,"lng":-121.0157017,"cats":["Household","Clothing","Kitchen","Baby & Kid Items"]},{"id":"1158","title":"Tom's Designs Arts/Crafts","description":"","description2":"","street":"3417 Norton Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6873761,"lng":-120.9819776,"cats":["Arts & Crafts"]},{"id":"1310","title":"Tonia's Treasures","description":"","description2":"","street":"416 Wilson Ave","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6450984,"lng":-120.9774167,"cats":["Household","Clothing","Kitchen","Books & Records","Collectibles"]},{"id":"1204","title":"Tonys Garage Sale","description":"","description2":"","street":"1516 WakeBridge Dr","city":"MODESTO","zip":"95356","phone":"","email":"","website":"","lat":37.6909773,"lng":-121.0186699,"cats":["Clothing","Collectibles","Memorabilia","Tools","Auto Parts"]},{"id":"1179","title":"Too Legit to Quit (buying): Declutter Sale!","description":"","description2":"","street":"3312 Cardinal Flower Ave","city":"modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6859929,"lng":-120.9512669,"cats":["Household","Clothing","Toys & Games","Electronics","Baby & Kid Items"]},{"id":"1120","title":"Toys & Collectibles & More!","description":"","description2":"","street":"1713 Rose Avenue","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6692662,"lng":-120.9669499,"cats":["Household","Toys & Games","Books & Records","Collectibles","Memorabilia"]},{"id":"1256","title":"Toys, collectibles, houseware, nerf guns, pokemon cards, and more","description":"","description2":"","street":"1710 Springwood Dr","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6694083,"lng":-121.0185895,"cats":["Arts & Crafts","Household","Clothing","Collectibles","Electronics"]},{"id":"1163","title":"Toys, Kids & Women's Clothing, Home Decor","description":"","description2":"","street":"4324 Trojans Way","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6640239,"lng":-120.9159804,"cats":["Household","Clothing","Toys & Games","Baby & Kid Items"]},{"id":"1203","title":"Treasure Galore","description":"","description2":"","street":"Ascot Dr","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6739819,"lng":-121.0199469,"cats":["Household","Toys & Games","Antiques","Tools","Baby & Kid Items"]},{"id":"1274","title":"Treasures for everyone","description":"","description2":"","street":"3205 Beverly Ct","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6215644,"lng":-121.0350469,"cats":["Arts & Crafts","Clothing","Collectibles","Antiques","Accessories & Jewelry"]},{"id":"1344","title":"Troxler Garage Sale","description":"","description2":"","street":"1520 Del Mar Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6587205,"lng":-121.0181214,"cats":["Arts & Crafts","Books & Records","Collectibles","Electronics","Antiques"]},{"id":"1227","title":"Uncle Buster's Garage","description":"","description2":"","street":"3607 Jeffrey Dr","city":"Modesto","zip":"95357","phone":"","email":"","website":"","lat":37.6906017,"lng":-120.9519796,"cats":["Household","Outdoors","Clothing","Kitchen","Tools"]},{"id":"1347","title":"Valencia Garage Sale","description":"","description2":"","street":"2337 Viola Street","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6445418,"lng":-120.9529245,"cats":["Clothing","Electronics","Tools","Garden","Accessories & Jewelry"]},{"id":"1196","title":"Vintage Finds and More","description":"","description2":"","street":"1413 W Orangeburg Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6642823,"lng":-121.0154017,"cats":["Household","Clothing","Kitchen","Books & Records","Collectibles"]},{"id":"1157","title":"Vintage Treasures","description":"","description2":"","street":"2708 Stuyvesant Circle","city":"Modesto","zip":"95356","phone":"","email":"","website":"","lat":37.6930133,"lng":-121.0454989,"cats":["Clothing","Toys & Games","Kitchen","Tools","Sports Equipment"]},{"id":"1319","title":"Vinyl Records Blowout Sale!","description":"","description2":"","street":"905 Crestwood Drive","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6826267,"lng":-120.9825331,"cats":["Clothing","Books & Records","Collectibles","Electronics","Music"]},{"id":"1355","title":"Vogt Garage Sale","description":"","description2":"","street":"829 Del Rey Ave","city":"Modesto","zip":"95350","phone":"","email":"","website":"","lat":37.6567445,"lng":-121.0146278,"cats":["Household","Clothing","Kitchen","Appliances","Accessories & Jewelry"]},{"id":"1356","title":"Voigt Garage Sale","description":"","description2":"","street":"4771 Parker Road","city":"Modesto","zip":"95357","phone":"","email":"","website":"","lat":37.6675014,"lng":-120.9080409,"cats":["Household","Outdoors","Books & Records","Collectibles","Antiques"]},{"id":"1153","title":"Waterfall Court Garage Sale","description":"","description2":"","street":"2021 Waterfall Court","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6864021,"lng":-120.9613923,"cats":["Household","Clothing","Books & Records","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1296","title":"wind spinners made out of aluminum soda and beer cans","description":"","description2":"","street":"1901 Kienitz Ave","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6645704,"lng":-120.9642145,"cats":["Arts & Crafts","Household","Outdoors","Clothing","Books & Records"]},{"id":"1309","title":"Wizbangers & Chingaderas","description":"","description2":"","street":"602 La Loma Ave","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6432877,"lng":-120.9824787,"cats":["Clothing","Collectibles","Electronics","Tools","Baby & Kid Items"]},{"id":"1114","title":"Women's Clothing including plus sizes","description":"","description2":"","street":"1509 Sturm Drive","city":"Modesto","zip":"95355","phone":"","email":"","website":"","lat":37.6659163,"lng":-120.9528833,"cats":["Arts & Crafts","Outdoors","Clothing","Books & Records","Accessories & Jewelry"]},{"id":"1367","title":"Woodthorp Garage Sale","description":"","description2":"","street":"427 Sycamore Ave.","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6505712,"lng":-120.9979158,"cats":["Household","Books & Records","Collectibles","Antiques","Baby & Kid Items"]},{"id":"1198","title":"Yearly Spring Clean Out Sale","description":"","description2":"","street":"2005 Dora St","city":"Modesto","zip":"95354","phone":"","email":"","website":"","lat":37.6410837,"lng":-120.9621095,"cats":["Arts & Crafts","Kitchen","Collectibles","Tools","Garden"]},{"id":"1287","title":"Yellow Brick Road Garage Sale","description":"","description2":"","street":"927 Yellow Brick Road","city":"MODESTO","zip":"95351","phone":"","email":"","website":"","lat":37.6158853,"lng":-120.9647181,"cats":["Arts & Crafts","Books & Records","Appliances","Baby & Kid Items","Accessories & Jewelry"]},{"id":"1142","title":"Yesterday's Treasure","description":"","description2":"","street":"912 Tahoe Drive","city":"MODESTO","zip":"95350","phone":"","email":"","website":"","lat":37.6746472,"lng":-120.9819962,"cats":["Household","Clothing","Collectibles","Antiques","Accessories & Jewelry"]},{"id":"1515","title":"You Name It, We Got It!","description":"not available","description2":"","street":"3724 Wichita Way","city":"Modesto","zip":"95357","phone":"","email":"","website":"","lat":37.6514307,"lng":-120.924921,"cats":["Accessories & Jewelry","Household","Clothing","Antiques","Baby & Kid Items"]}]</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
+// ============ DATA ============
 const DATA = JSON.parse(document.getElementById('data').textContent);
 const ALL_CATS = [...new Set(DATA.flatMap(s => s.cats))].sort();
-const BIG_KEYWORDS = ['estate','moving','multi','huge','galore','blowout','super','4 family','3 family','2 family','6 family','5 family','family sale','rummage','community','multi-family','multi family','everything','vast','treasure','best sale','collectibles','downsizing','cleaning out','clean out'];
-const DEFAULT_PREF = {
+
+// ============ CONSTANTS ============
+const DEFAULT_PREFS = {
   "Electronics":3, "Outdoors":3, "Sports Equipment":3, "Books & Records":3,
   "Household":2, "Toys & Games":2, "Tools":2, "Antiques":2
 };
+const BIG_KEYWORDS = ['estate','moving','multi-family','multi family','huge','galore','blowout','4 family','3 family','2 family','family sale','rummage','community','everything','vast','treasure','downsizing'];
+const DEFAULT_KW = new Set(['estate','moving','multi-family','multi family','huge','galore','blowout','family sale','rummage','community','everything','downsizing']);
+const EVENT_END = new Date('2026-04-18T16:00:00-07:00');
 
-// --- UI build ---
-const catsEl = document.getElementById('cats');
-const catCounts = {};
-DATA.forEach(s => s.cats.forEach(c => catCounts[c] = (catCounts[c]||0)+1));
-ALL_CATS.forEach(c => {
-  const row = document.createElement('div'); row.className='cat';
-  const lab = document.createElement('label');
-  const cb = document.createElement('input'); cb.type='checkbox'; cb.dataset.cat=c;
-  const pref = DEFAULT_PREF[c] || 0;
-  if (pref) cb.checked = true;
-  lab.appendChild(cb); lab.append(' ' + c);
-  row.appendChild(lab);
-  const cnt = document.createElement('span'); cnt.className='count'; cnt.textContent = catCounts[c]; row.appendChild(cnt);
-  const sel = document.createElement('select'); sel.dataset.cat=c;
-  [['3','Must'],['2','Want'],['1','Meh']].forEach(([v,t])=>{const o=document.createElement('option');o.value=v;o.textContent=t;sel.appendChild(o);});
-  sel.value = String(pref||2);
-  row.appendChild(sel);
-  catsEl.appendChild(row);
-});
+// ============ UTILS ============
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const distKm = (a,b) => { const R=6371,t=x=>x*Math.PI/180; const dLat=t(b.lat-a.lat), dLng=t(b.lng-a.lng); const s=Math.sin(dLat/2)**2+Math.cos(t(a.lat))*Math.cos(t(b.lat))*Math.sin(dLng/2)**2; return 2*R*Math.asin(Math.sqrt(s)); };
+const distMi = (a,b) => distKm(a,b) / 1.60934;
+const distMeters = (a,b) => distKm(a,b) * 1000;
 
-const kwEl = document.getElementById('kwList');
-const kwOn = new Set(['estate','moving','multi','huge','galore','blowout','4 family','multi-family','multi family','family sale','rummage','community','everything']);
-BIG_KEYWORDS.forEach(k => {
-  const t = document.createElement('span'); t.className='kw-tag'+(kwOn.has(k)?' on':''); t.textContent=k;
-  t.onclick = () => { t.classList.toggle('on'); if(kwOn.has(k)) kwOn.delete(k); else kwOn.add(k); };
-  kwEl.appendChild(t);
-});
-
-// --- Geocoding start address via Nominatim (once) ---
-async function geocode(q) {
-  const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q), {headers:{'Accept':'application/json'}});
-  const j = await r.json();
-  if (!j || !j[0]) throw new Error('Could not geocode ' + q);
-  return {lat: parseFloat(j[0].lat), lng: parseFloat(j[0].lon)};
+function toast(msg, ms=2200){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove('show'), ms);
 }
 
-// --- Distance ---
-function dist(a,b){
-  const R=6371, toR=x=>x*Math.PI/180;
-  const dLat=toR(b.lat-a.lat), dLng=toR(b.lng-a.lng);
-  const s1=Math.sin(dLat/2)**2 + Math.cos(toR(a.lat))*Math.cos(toR(b.lat))*Math.sin(dLng/2)**2;
-  return 2*R*Math.asin(Math.sqrt(s1));
+// ============ STORAGE ============
+const STORE_KEY = 'garagefest:v1';
+function savePrefs(){
+  const prefs = {};
+  $$('#cats .cat').forEach(r => {
+    const id = r.dataset.cat;
+    prefs[id] = { on: r.querySelector('input').checked, weight: parseInt(r.dataset.weight||'2',10) };
+  });
+  const kwOn = BIG_KEYWORDS.filter(k => $(`.kw[data-k="${CSS.escape(k)}"]`).classList.contains('on'));
+  try { localStorage.setItem(STORE_KEY, JSON.stringify({
+    start: $('#start').value,
+    maxStops: $('#maxStops').value,
+    maxRadius: $('#maxRadius').value,
+    minCats: $('#minCats').value,
+    walkFt: $('#walkFt').value,
+    weightBigness: $('#weightBigness').checked,
+    weightCluster: $('#weightCluster').checked,
+    prefs, kwOn
+  })); } catch(e) {}
+}
+function loadPrefs(){
+  try { return JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch(e) { return null; }
 }
 
-// --- Score stops ---
-function scoreStop(s, prefs, weightBigness) {
+// ============ CLUSTERING ============
+// Union-find over walkable pairs
+function buildClusters(sales, walkMeters){
+  const parent = {}; const find = x => parent[x]===x ? x : (parent[x]=find(parent[x]));
+  const union = (a,b)=>{ const ra=find(a), rb=find(b); if(ra!==rb) parent[ra]=rb; };
+  sales.forEach(s => parent[s.id]=s.id);
+  // O(n^2) — fine for n=272
+  for (let i=0;i<sales.length;i++){
+    for (let j=i+1;j<sales.length;j++){
+      if (distMeters(sales[i], sales[j]) < walkMeters) union(sales[i].id, sales[j].id);
+    }
+  }
+  const clusters = {}; // root -> [ids]
+  const byId = {}; // id -> root
+  sales.forEach(s => {
+    const r = find(s.id);
+    (clusters[r] = clusters[r] || []).push(s.id);
+    byId[s.id] = r;
+  });
+  return { clusters, byId };
+}
+
+// ============ SCORING ============
+function scoreStop(s, prefs, useBigness, useCluster, neighborSet, kwOn){
   let score = 0;
   const hits = [];
   s.cats.forEach(c => {
     if (prefs[c]) { score += prefs[c]; hits.push(c); }
   });
-  if (!hits.length) return {score:0, hits};
-  if (weightBigness) {
-    score += Math.min(s.cats.length - 2, 4) * 0.4; // more cats = bigger
+  if (!hits.length) return { score:0, hits, clusterBonus:0 };
+  if (useBigness){
+    score += Math.min(s.cats.length - 2, 4) * 0.3;
     const t = s.title.toLowerCase();
-    if ([...kwOn].some(k => t.includes(k))) score += 2;
+    if ([...kwOn].some(k => t.includes(k))) score += 1.5;
   }
-  return {score, hits};
+  let clusterBonus = 0;
+  if (useCluster){
+    // bonus = # of walkable neighbors also matching your categories
+    const matchingNeighbors = [...neighborSet].filter(nid => {
+      const n = DATA.find(x => x.id===nid);
+      return n && n.cats.some(c => prefs[c]);
+    }).length;
+    clusterBonus = Math.min(matchingNeighbors, 4) * 0.8;
+    score += clusterBonus;
+  }
+  return { score, hits, clusterBonus };
 }
 
-// --- Nearest-neighbor order + 2-opt ---
-function orderStops(start, stops) {
+// ============ ROUTING ============
+function orderStops(start, stops){
   if (stops.length <= 1) return stops;
   const remaining = stops.slice();
-  const ord = [];
-  let cur = start;
-  while (remaining.length) {
+  const ord = []; let cur = start;
+  while (remaining.length){
     let bi=0, bd=Infinity;
-    for (let i=0; i<remaining.length; i++) {
-      const d = dist(cur, remaining[i]);
-      if (d<bd){bd=d;bi=i;}
+    for (let i=0;i<remaining.length;i++){
+      const d = distKm(cur, remaining[i]);
+      if (d<bd){ bd=d; bi=i; }
     }
-    const next = remaining.splice(bi,1)[0];
-    ord.push(next); cur = next;
+    ord.push(remaining.splice(bi,1)[0]); cur = ord[ord.length-1];
   }
-  // 2-opt
+  // 2-opt pass
   const all = [start, ...ord];
   let improved = true, pass = 0;
-  while (improved && pass < 20) {
+  while (improved && pass < 30){
     improved = false; pass++;
-    for (let i=1; i<all.length-1; i++) {
-      for (let j=i+1; j<all.length; j++) {
-        const d1 = dist(all[i-1],all[i]) + (j+1<all.length?dist(all[j],all[j+1]):0);
-        const d2 = dist(all[i-1],all[j]) + (j+1<all.length?dist(all[i],all[j+1]):0);
-        if (d2 + 1e-9 < d1) {
+    for (let i=1;i<all.length-1;i++){
+      for (let j=i+1;j<all.length;j++){
+        const d1 = distKm(all[i-1],all[i]) + (j+1<all.length?distKm(all[j],all[j+1]):0);
+        const d2 = distKm(all[i-1],all[j]) + (j+1<all.length?distKm(all[i],all[j+1]):0);
+        if (d2 + 1e-9 < d1){
           const rev = all.slice(i, j+1).reverse();
           all.splice(i, rev.length, ...rev);
           improved = true;
@@ -241,194 +394,381 @@ function orderStops(start, stops) {
   return all.slice(1);
 }
 
-// --- Main generate ---
-let startPt = null;
-let currentStops = [];
-let currentStart = null;
-const blacklist = new Set(); // sale ids the user X'd out
+// ============ MAP ============
 const map = L.map('map', {
-  center: [37.6585, -120.9877],
-  zoom: 11,
-  preferCanvas: true,
-  zoomSnap: 0.5,
-  wheelDebounceTime: 40,
-  wheelPxPerZoomLevel: 100,
-  inertia: true
+  center:[37.6585,-120.9877], zoom:11,
+  preferCanvas:true, zoomSnap:0.5, wheelDebounceTime:40, wheelPxPerZoomLevel:100, inertia:true
 });
-// ESRI tiles don't require a referrer header (OSM does and was 403ing in the preview panel)
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{
-  maxZoom:19,
-  attribution:'© Esri, HERE, Garmin, USGS, Intermap'
+  maxZoom:19, attribution:'© Esri, HERE'
 }).addTo(map);
 
-// "Fit to route" control — snaps the map back to show the whole trip
 const FitControl = L.Control.extend({
-  options: { position: 'topleft' },
-  onAdd: function() {
-    const btn = L.DomUtil.create('button', 'leaflet-bar fit-btn');
-    btn.innerHTML = '⤢ Fit';
-    btn.title = 'Zoom to show full route';
-    btn.type = 'button';
-    L.DomEvent.disableClickPropagation(btn);
-    btn.onclick = () => {
-      if (routeLine && radiusCircle) {
-        map.fitBounds(routeLine.getBounds().extend(radiusCircle.getBounds()), {padding:[30,30], maxZoom: 14});
-      } else if (radiusCircle) {
-        map.fitBounds(radiusCircle.getBounds(), {padding:[30,30]});
-      }
-    };
-    return btn;
+  options:{position:'topleft'},
+  onAdd(){
+    const b = L.DomUtil.create('button','fit-btn');
+    b.innerHTML = '⤢ Fit'; b.type='button';
+    L.DomEvent.disableClickPropagation(b);
+    b.onclick = () => { if (window.fitAll) window.fitAll(); };
+    return b;
   }
 });
 new FitControl().addTo(map);
-let markerLayer = L.layerGroup().addTo(map);
-let routeLine = null;
-let radiusCircle = null;
 
-// show all sales lightly
-DATA.forEach(s => L.circleMarker([s.lat,s.lng], {radius:3, color:'#aaa', fillOpacity:0.6}).addTo(markerLayer));
+const baseLayer = L.layerGroup().addTo(map);
+const routeLayer = L.layerGroup().addTo(map);
+const clusterLayer = L.layerGroup().addTo(map);
+let routeLine = null, radiusCircle = null;
 
-async function generate() {
-  const prefs = {};
-  document.querySelectorAll('#cats .cat').forEach(row => {
-    const cb = row.querySelector('input');
-    const sel = row.querySelector('select');
-    if (cb.checked) prefs[cb.dataset.cat] = parseInt(sel.value,10);
+// ============ STATE ============
+let startPt = null;
+let currentStart = null;
+let currentStops = [];
+let ctx = {};
+const blacklist = new Set();
+
+// ============ UI: BUILD SETTINGS ============
+function buildCats(){
+  const catsEl = $('#cats');
+  catsEl.innerHTML = '';
+  const counts = {};
+  DATA.forEach(s => s.cats.forEach(c => counts[c] = (counts[c]||0)+1));
+  const saved = loadPrefs();
+  ALL_CATS.forEach(c => {
+    const row = document.createElement('div');
+    const sPref = saved?.prefs?.[c];
+    const pref = sPref ? sPref.weight : (DEFAULT_PREFS[c] || 2);
+    const on = sPref ? sPref.on : !!DEFAULT_PREFS[c];
+    row.className = 'cat' + (on ? '' : ' off');
+    row.dataset.cat = c;
+    row.dataset.weight = pref;
+    row.innerHTML = `
+      <div class="label">
+        <input type="checkbox" ${on ? 'checked' : ''}>
+        <span>${esc(c)}</span>
+        <span class="count">${counts[c]}</span>
+      </div>
+      <div class="seg">
+        <button data-w="3" ${pref===3?'class="on"':''}>Must</button>
+        <button data-w="2" ${pref===2?'class="on"':''}>Want</button>
+        <button data-w="1" ${pref===1?'class="on"':''}>Meh</button>
+      </div>`;
+    catsEl.appendChild(row);
   });
-  const maxStops = parseInt(document.getElementById('maxStops').value,10) || 20;
-  const minCats = parseInt(document.getElementById('minCats').value,10) || 1;
-  const maxRadiusMi = parseFloat(document.getElementById('maxRadius').value) || 3;
-  const maxRadiusKm = maxRadiusMi * 1.60934;
-  const weightBigness = document.getElementById('weightBigness').checked;
-  const startAddr = document.getElementById('start').value.trim();
-
-  document.getElementById('stats').textContent = 'Geocoding start…';
-  try { startPt = await geocode(startAddr + ' Modesto CA'); }
-  catch(e) { document.getElementById('stats').textContent = 'Could not geocode start'; return; }
-
-  const withDist = DATA.map(s => ({...s, distMi: dist(startPt, s) / 1.60934, ...scoreStop(s, prefs, weightBigness)}));
-  const inRadius = withDist.filter(s => s.distMi <= maxRadiusMi);
-  const scored = inRadius.filter(s => s.score > 0 && s.cats.length >= minCats && !blacklist.has(s.id));
-  scored.sort((a,b) => b.score - a.score);
-  const chosen = scored.slice(0, maxStops);
-
-  const ordered = orderStops(startPt, chosen);
-  currentStops = ordered;
-  currentStart = {...startPt, addr: startAddr};
-  window.__ctx = {inRadius: inRadius.length, scoredCount: scored.length, maxRadiusMi, maxRadiusKm};
-  renderCurrent();
+  catsEl.addEventListener('click', (e) => {
+    const row = e.target.closest('.cat'); if (!row) return;
+    if (e.target.matches('.seg button')){
+      row.dataset.weight = e.target.dataset.w;
+      row.querySelectorAll('.seg button').forEach(b => b.classList.toggle('on', b === e.target));
+      // auto-enable when changing weight
+      const cb = row.querySelector('input'); if (!cb.checked){ cb.checked = true; row.classList.remove('off'); }
+      savePrefs();
+    } else if (e.target.matches('input[type=checkbox]')){
+      row.classList.toggle('off', !e.target.checked);
+      savePrefs();
+    } else if (e.target.closest('.label') && !e.target.matches('input')){
+      const cb = row.querySelector('input');
+      cb.checked = !cb.checked;
+      row.classList.toggle('off', !cb.checked);
+      savePrefs();
+    }
+  });
 }
 
-function renderCurrent() {
-  if (!startPt || !currentStart) return;
-  const {maxRadiusMi, maxRadiusKm, inRadius, scoredCount} = window.__ctx || {};
-  // compute total distance
-  let total = 0; let cur = startPt;
-  currentStops.forEach(s => { total += dist(cur, s); cur = s; });
-  const totalMi = total / 1.60934;
-  document.getElementById('stats').textContent =
-    `${currentStops.length} stops · ~${totalMi.toFixed(1)} mi drive · ${inRadius} sales within ${maxRadiusMi} mi · ${scoredCount} match your categories`;
+function buildKws(){
+  const el = $('#kwList'); el.innerHTML = '';
+  const saved = loadPrefs();
+  const on = new Set(saved?.kwOn || [...DEFAULT_KW]);
+  BIG_KEYWORDS.forEach(k => {
+    const b = document.createElement('span');
+    b.className = 'kw' + (on.has(k)?' on':'');
+    b.dataset.k = k;
+    b.textContent = k;
+    b.onclick = () => { b.classList.toggle('on'); savePrefs(); };
+    el.appendChild(b);
+  });
+}
 
-  // Render list
-  const list = document.getElementById('stops');
+function applySavedSettings(){
+  const s = loadPrefs(); if (!s) return;
+  if (s.start) $('#start').value = s.start;
+  if (s.maxStops) $('#maxStops').value = s.maxStops;
+  if (s.maxRadius) $('#maxRadius').value = s.maxRadius;
+  if (s.minCats) $('#minCats').value = s.minCats;
+  if (s.walkFt) $('#walkFt').value = s.walkFt;
+  if (typeof s.weightBigness === 'boolean') $('#weightBigness').checked = s.weightBigness;
+  if (typeof s.weightCluster === 'boolean') $('#weightCluster').checked = s.weightCluster;
+}
+
+// ============ GEOCODE ============
+async function geocode(q){
+  const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q);
+  const r = await fetch(url, {headers:{'Accept':'application/json'}});
+  const j = await r.json();
+  if (!j || !j[0]) throw new Error('no result');
+  return { lat:parseFloat(j[0].lat), lng:parseFloat(j[0].lon) };
+}
+async function geocodeStart(addr){
+  // Try a few variations so friends don't have to format perfectly
+  const tries = [addr, addr + ', Modesto CA', addr + ', Modesto, CA 95354'];
+  for (const q of tries){ try { return await geocode(q); } catch(e){} }
+  throw new Error('geocode failed');
+}
+
+// ============ GENERATE ============
+async function generate(){
+  savePrefs();
+  $('#loading').hidden = false;
+  $('#empty').hidden = true;
+  $('#stops').innerHTML = '';
+
+  const prefs = {};
+  $$('#cats .cat').forEach(r => {
+    if (r.querySelector('input').checked) prefs[r.dataset.cat] = parseInt(r.dataset.weight,10);
+  });
+  const maxStops = parseInt($('#maxStops').value,10) || 20;
+  const minCats = parseInt($('#minCats').value,10) || 1;
+  const maxRadiusMi = parseFloat($('#maxRadius').value) || 3;
+  const walkFt = parseFloat($('#walkFt').value) || 1300;
+  const walkMeters = walkFt * 0.3048;
+  const useBigness = $('#weightBigness').checked;
+  const useCluster = $('#weightCluster').checked;
+  const startAddr = $('#start').value.trim() || '537 Terminal Ave, Modesto, CA';
+  const kwOn = new Set([...$$('.kw.on')].map(e => e.dataset.k));
+
+  try {
+    startPt = await geocodeStart(startAddr);
+  } catch(e){
+    $('#loading').hidden = true;
+    toast('Could not find that address — try a cross-street');
+    return;
+  }
+
+  const withDist = DATA
+    .filter(s => !blacklist.has(s.id))
+    .map(s => ({ ...s, distMi: distMi(startPt, s) }));
+  const inRadius = withDist.filter(s => s.distMi <= maxRadiusMi);
+
+  // Build clusters across ALL in-radius sales (not just matches)
+  const { byId: clusterByIdAll, clusters: clustersAll } = buildClusters(inRadius, walkMeters);
+  // Map id -> set of walkable neighbors (same cluster, different id)
+  const neighborMap = {};
+  Object.entries(clustersAll).forEach(([root, ids]) => {
+    ids.forEach(id => neighborMap[id] = new Set(ids.filter(x => x !== id)));
+  });
+
+  const scored = inRadius
+    .map(s => ({ ...s, ...scoreStop(s, prefs, useBigness, useCluster, neighborMap[s.id] || new Set(), kwOn) }))
+    .filter(s => s.score > 0 && s.cats.length >= minCats);
+  scored.sort((a,b) => b.score - a.score);
+
+  // Greedy cluster-aware pick: start with top-scored, then add any walkable neighbor that also matches
+  const picked = [];
+  const pickedIds = new Set();
+  for (const s of scored){
+    if (picked.length >= maxStops) break;
+    if (pickedIds.has(s.id)) continue;
+    picked.push(s); pickedIds.add(s.id);
+    if (!useCluster) continue;
+    // pull in walkable neighbors that also match (up to fill quota)
+    const nbrs = [...(neighborMap[s.id] || [])]
+      .map(id => scored.find(x => x.id === id))
+      .filter(Boolean)
+      .sort((a,b) => b.score - a.score);
+    for (const n of nbrs){
+      if (picked.length >= maxStops) break;
+      if (pickedIds.has(n.id)) continue;
+      picked.push(n); pickedIds.add(n.id);
+    }
+  }
+
+  const ordered = orderStops(startPt, picked);
+  currentStops = ordered;
+  currentStart = { ...startPt, addr: startAddr };
+  ctx = { maxRadiusMi, walkMeters, neighborMap, clustersAll, inRadiusCount: inRadius.length, scoredCount: scored.length };
+
+  $('#loading').hidden = true;
+  // Auto-collapse settings card after first successful run (desktop too, keeps UI clean)
+  $('#settingsCard').classList.add('collapsed');
+
+  render();
+}
+
+// ============ RENDER ============
+function render(){
+  // Summary
+  const hasStops = currentStops.length > 0;
+  $('#summary').hidden = !hasStops;
+  $('#exportRow').hidden = !hasStops;
+  if (hasStops){
+    let total = 0; let cur = startPt;
+    currentStops.forEach(s => { total += distKm(cur, s); cur = s; });
+    const miles = (total / 1.60934).toFixed(1);
+    // Count clusters IN the chosen set
+    const ids = new Set(currentStops.map(s => s.id));
+    const clusterRoots = new Set();
+    currentStops.forEach(s => {
+      const nbrs = ctx.neighborMap[s.id] || new Set();
+      if ([...nbrs].some(n => ids.has(n))) {
+        // find first member among currentStops to use as root-key
+        const group = [s.id, ...nbrs].filter(x => ids.has(x)).sort();
+        clusterRoots.add(group[0]);
+      }
+    });
+    $('#sumStops').textContent = currentStops.length;
+    $('#sumMiles').textContent = miles;
+    $('#sumClusters').textContent = clusterRoots.size || 0;
+  }
+
+  // List
+  const list = $('#stops');
   list.innerHTML = '';
+  if (!hasStops){
+    $('#empty').hidden = false;
+    $('#empty').textContent = ctx.inRadiusCount === 0
+      ? `No sales within ${ctx.maxRadiusMi} miles. Try a bigger radius.`
+      : `${ctx.inRadiusCount} sales nearby but none match your categories. Loosen filters or check "Must" items.`;
+  } else {
+    $('#empty').hidden = true;
+  }
   currentStops.forEach((s, i) => {
-    const div = document.createElement('div'); div.className='stop';
+    const card = document.createElement('div');
+    card.className = 'stop';
+    card.dataset.id = s.id;
     const hitSet = new Set(s.hits);
-    const desc = (s.description || '').trim();
-    const desc2 = (s.description2 || '').trim();
-    const bothDesc = [desc, desc2].filter(d => d && d.toLowerCase() !== 'not available').join('\n\n');
+    const nbrs = ctx.neighborMap[s.id] || new Set();
+    const walkableInRoute = [...nbrs].filter(n => currentStops.find(x => x.id === n)).length;
     const addrFull = `${s.street}, ${s.city} ${s.zip}`;
-    const gmapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addrFull)}`;
-    div.dataset.id = s.id;
-    div.innerHTML = `
-      <div class="hdr">
-        <span class="score">#${i+1} · +${s.score.toFixed(1)}</span>
-        <button class="rm" title="Remove this stop" data-id="${escapeHTML(s.id)}">×</button>
+    const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addrFull)}`;
+    const amapsUrl = `http://maps.apple.com/?daddr=${encodeURIComponent(addrFull)}&dirflg=d`;
+    const desc = (s.description||'').trim();
+    const desc2 = (s.description2||'').trim();
+    const bothDesc = [desc, desc2].filter(d => d && d.toLowerCase() !== 'not available').join('\n\n');
+
+    card.innerHTML = `
+      <button class="rm" aria-label="Remove stop" data-id="${esc(s.id)}">×</button>
+      <div class="top">
+        <div class="badge">${i+1}</div>
+        <div class="body">
+          <div class="title">${esc(s.title)}</div>
+          <div class="addr">${esc(addrFull)} · ${s.distMi.toFixed(1)} mi</div>
+          <div class="meta">
+            ${walkableInRoute ? `<span class="cluster-badge">🚶 ${walkableInRoute} walkable</span>` : ''}
+            ${s.clusterBonus > 0 && !walkableInRoute ? `<span class="cluster-badge">🚶 cluster nearby</span>` : ''}
+          </div>
+          <div class="tags">
+            ${s.cats.map(c => `<span class="tag${hitSet.has(c)?' hit':''}">${esc(c)}</span>`).join('')}
+          </div>
+        </div>
       </div>
-      <div class="title">${escapeHTML(s.title)}</div>
-      <div class="addr">${escapeHTML(addrFull)} · ${s.distMi.toFixed(1)} mi from start</div>
-      <div class="tags">${s.cats.map(c => `<span class="tag${hitSet.has(c)?' hit':''}">${escapeHTML(c)}</span>`).join('')}</div>
       <div class="detail">
         <div class="k">Description</div>
-        ${bothDesc ? `<p>${escapeHTML(bothDesc).replace(/\n/g,'<br>')}</p>` : `<p class="nope">No description provided — title &amp; category tags are all the host listed.</p>`}
-        <div class="k">All categories</div>
-        <p>${s.cats.map(escapeHTML).join(' · ')}</p>
-        ${s.phone ? `<div class="k">Phone</div><p>${escapeHTML(s.phone)}</p>` : ''}
-        ${s.email ? `<div class="k">Email</div><p><a href="mailto:${escapeHTML(s.email)}">${escapeHTML(s.email)}</a></p>` : ''}
-        ${s.website ? `<div class="k">Website</div><p><a href="${escapeHTML(s.website)}" target="_blank" rel="noopener">${escapeHTML(s.website)}</a></p>` : ''}
-        <div class="k">Open in</div>
-        <p><a href="${gmapsLink}" target="_blank" rel="noopener">Google Maps ↗</a></p>
+        ${bothDesc ? `<p>${esc(bothDesc).replace(/\n/g,'<br>')}</p>` : '<p class="nope">Host didn\'t write a description — title and tags are all they listed.</p>'}
+        ${s.phone ? `<div class="k">Phone</div><p>${esc(s.phone)}</p>` : ''}
+        ${s.email ? `<div class="k">Email</div><p><a href="mailto:${esc(s.email)}">${esc(s.email)}</a></p>` : ''}
+        <div class="k">Open this stop</div>
+        <p><a href="${amapsUrl}" target="_blank" rel="noopener">Apple Maps ↗</a> &nbsp;·&nbsp; <a href="${gmapsUrl}" target="_blank" rel="noopener">Google Maps ↗</a></p>
       </div>`;
-    list.appendChild(div);
+    list.appendChild(card);
+
+    // Walking/driving hop to next stop
+    if (i < currentStops.length - 1){
+      const next = currentStops[i+1];
+      const hopMi = distMi(s, next);
+      const hop = document.createElement('div');
+      const isWalk = hopMi <= (ctx.walkMeters / 1609.34);
+      hop.className = 'hop' + (isWalk ? ' walk' : '');
+      hop.innerHTML = `<span class="line"></span><span>${isWalk ? '🚶' : '🚗'} ${hopMi < 0.1 ? '<0.1' : hopMi.toFixed(1)} mi</span><span class="line"></span>`;
+      list.appendChild(hop);
+    }
   });
-  // Removed bar
-  if (blacklist.size) {
-    const bar = document.createElement('div'); bar.className='removed-bar';
+  if (blacklist.size){
+    const bar = document.createElement('div');
+    bar.className = 'removed-bar';
     bar.innerHTML = `${blacklist.size} removed · <a id="restoreAll">restore all</a>`;
     list.appendChild(bar);
   }
 
-  // Render map
-  markerLayer.clearLayers();
-  DATA.forEach(s => L.circleMarker([s.lat,s.lng], {radius:2, color:'#ccc', fillOpacity:0.4}).addTo(markerLayer));
-  L.marker([startPt.lat, startPt.lng], {title:'Start'}).addTo(markerLayer).bindPopup('Start: '+currentStart.addr);
-  currentStops.forEach((s, i) => {
-    const m = L.marker([s.lat,s.lng], {title: (i+1)+'. '+s.title}).addTo(markerLayer);
-    m.bindPopup(`<b>${i+1}. ${escapeHTML(s.title)}</b><br>${escapeHTML(s.street)}<br>${s.cats.join(', ')}`);
-  });
+  // Map
+  baseLayer.clearLayers(); routeLayer.clearLayers(); clusterLayer.clearLayers();
+  DATA.forEach(s => L.circleMarker([s.lat,s.lng], {radius:2, color:'#c8c3b2', fillOpacity:0.5, weight:0}).addTo(baseLayer));
+
   if (routeLine) routeLine.remove();
   if (radiusCircle) radiusCircle.remove();
   radiusCircle = L.circle([startPt.lat, startPt.lng], {
-    radius: maxRadiusKm * 1000,
-    color:'#888', weight:1, fillColor:'#888', fillOpacity:0.05, dashArray:'4 4'
+    radius: (ctx.maxRadiusMi || 3) * 1609.34,
+    color:'#999', weight:1, fillColor:'#999', fillOpacity:0.04, dashArray:'4 4'
   }).addTo(map);
-  if (currentStops.length) {
-    routeLine = L.polyline([[startPt.lat,startPt.lng], ...currentStops.map(s=>[s.lat,s.lng])], {color:'#f0523d',weight:4,opacity:0.7}).addTo(map);
-    // Include the radius circle so the view always shows the whole search area.
-    // maxZoom cap prevents zooming into a single point if there's only 1 stop.
-    map.fitBounds(routeLine.getBounds().extend(radiusCircle.getBounds()), {padding:[30,30], maxZoom: 14});
+
+  // Cluster connectors (green thin lines between walkable chosen pairs)
+  if (hasStops){
+    const ids = new Set(currentStops.map(s => s.id));
+    const drawn = new Set();
+    currentStops.forEach(s => {
+      const nbrs = ctx.neighborMap[s.id] || new Set();
+      [...nbrs].filter(n => ids.has(n)).forEach(n => {
+        const k = [s.id, n].sort().join('-');
+        if (drawn.has(k)) return; drawn.add(k);
+        const o = currentStops.find(x => x.id === n);
+        L.polyline([[s.lat,s.lng],[o.lat,o.lng]], {color:'#2b8a3e', weight:2, opacity:0.55, dashArray:'5 3'}).addTo(clusterLayer);
+      });
+    });
+  }
+
+  L.marker([startPt.lat, startPt.lng], {title:'Start'}).addTo(routeLayer).bindPopup('<b>Start</b><br>' + esc(currentStart.addr));
+  currentStops.forEach((s, i) => {
+    const m = L.marker([s.lat,s.lng], {title: (i+1)+'. '+s.title}).addTo(routeLayer);
+    m.bindPopup(`<b>${i+1}. ${esc(s.title)}</b><br>${esc(s.street)}<br>${s.cats.join(', ')}`);
+  });
+
+  if (hasStops){
+    routeLine = L.polyline([[startPt.lat,startPt.lng], ...currentStops.map(s=>[s.lat,s.lng])], {color:'#f0523d', weight:4, opacity:0.75}).addTo(routeLayer);
+    window.fitAll = () => map.fitBounds(routeLine.getBounds().extend(radiusCircle.getBounds()), {padding:[30,30], maxZoom:14});
+    window.fitAll();
   } else {
-    map.fitBounds(radiusCircle.getBounds(), {padding:[30,30]});
+    window.fitAll = () => map.fitBounds(radiusCircle.getBounds(), {padding:[30,30]});
+    window.fitAll();
   }
 }
 
-// Stop list delegation: X button removes, clicking elsewhere on the card expands details
-document.getElementById('stops').addEventListener('click', (e) => {
-  if (e.target.classList.contains('rm')) {
+// ============ EVENTS ============
+$('#gen').onclick = () => generate();
+['start','maxStops','maxRadius','minCats','walkFt','weightBigness','weightCluster'].forEach(id => {
+  $('#' + id).addEventListener('change', savePrefs);
+});
+$('#settingsHead').onclick = () => $('#settingsCard').classList.toggle('collapsed');
+
+// Stop list delegation
+$('#stops').addEventListener('click', (e) => {
+  if (e.target.classList.contains('rm')){
     e.stopPropagation();
     const id = e.target.dataset.id;
     blacklist.add(id);
     const idx = currentStops.findIndex(s => s.id === id);
-    if (idx >= 0) {
+    if (idx >= 0){
       currentStops.splice(idx, 1);
       currentStops = orderStops(startPt, currentStops);
-      renderCurrent();
+      render();
     }
     return;
   }
-  if (e.target.id === 'restoreAll') {
+  if (e.target.id === 'restoreAll'){
     blacklist.clear();
     generate();
     return;
   }
-  // Don't toggle when clicking a link inside the detail pane
   if (e.target.closest('a')) return;
-  const card = e.target.closest('.stop');
-  if (!card) return;
+  const card = e.target.closest('.stop'); if (!card) return;
   const wasOpen = card.classList.contains('open');
-  // Close others, open this one (accordion behavior)
-  document.querySelectorAll('.stop.open').forEach(c => c.classList.remove('open'));
-  if (!wasOpen) {
+  $$('.stop.open').forEach(c => c.classList.remove('open'));
+  if (!wasOpen){
     card.classList.add('open');
-    // Pan map to this stop and open its popup
     const id = card.dataset.id;
     const s = currentStops.find(x => x.id === id);
-    if (s) {
-      // Just pan — don't override the user's zoom level
+    if (s){
       map.panTo([s.lat, s.lng], {animate:true, duration:0.4});
-      markerLayer.eachLayer(layer => {
-        if (layer.getLatLng && Math.abs(layer.getLatLng().lat - s.lat) < 1e-6 && Math.abs(layer.getLatLng().lng - s.lng) < 1e-6) {
+      routeLayer.eachLayer(layer => {
+        if (layer.getLatLng && Math.abs(layer.getLatLng().lat - s.lat) < 1e-6 && Math.abs(layer.getLatLng().lng - s.lng) < 1e-6){
           if (layer.openPopup) layer.openPopup();
         }
       });
@@ -436,55 +776,67 @@ document.getElementById('stops').addEventListener('click', (e) => {
   }
 });
 
-function escapeHTML(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-
-document.getElementById('gen').onclick = generate;
-
-document.getElementById('gmaps').onclick = () => {
-  if (!currentStops.length) { alert('Generate a route first'); return; }
-  // Google Maps supports up to 10 stops per /dir/ URL — chunk if more.
+// Export buttons
+$('#openGoogle').onclick = () => {
+  if (!currentStops.length) { toast('Generate a route first'); return; }
   const origin = encodeURIComponent(currentStart.addr);
   const all = currentStops.map(s => encodeURIComponent(`${s.street}, ${s.city} ${s.zip}`));
-  const chunkSize = 9; // 9 waypoints + origin + end = 11 - Google allows 10 total; be safe
-  if (all.length <= 23) {
-    const url = `https://www.google.com/maps/dir/${origin}/${all.join('/')}`;
-    window.open(url, '_blank');
+  if (all.length <= 23){
+    window.open(`https://www.google.com/maps/dir/${origin}/${all.join('/')}`, '_blank');
   } else {
-    // split
-    for (let i=0;i<all.length;i+=chunkSize) {
-      const slice = all.slice(i, i+chunkSize);
+    const chunk = 9;
+    for (let i=0;i<all.length;i+=chunk){
+      const slice = all.slice(i, i+chunk);
       const prev = i===0 ? origin : all[i-1];
-      const url = `https://www.google.com/maps/dir/${prev}/${slice.join('/')}`;
-      window.open(url, '_blank');
+      window.open(`https://www.google.com/maps/dir/${prev}/${slice.join('/')}`, '_blank');
     }
   }
 };
-
-document.getElementById('csv').onclick = () => {
-  if (!currentStops.length) { alert('Generate a route first'); return; }
-  const esc = v => { v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
-  const hdr = ['order','title','street','city','zip','lat','lng','categories','score','matches'];
-  const rows = currentStops.map((s,i) => [i+1, s.title, s.street, s.city, s.zip, s.lat, s.lng, s.cats.join('; '), s.score.toFixed(2), s.hits.join('; ')]);
-  const csv = [hdr.join(',')].concat(rows.map(r=>r.map(esc).join(','))).join('\n');
-  const blob = new Blob([csv], {type:'text/csv'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='garagefest_route.csv'; a.click();
+$('#openApple').onclick = () => {
+  if (!currentStops.length) { toast('Generate a route first'); return; }
+  // Apple Maps only cleanly supports one daddr; multiple via "+to:+" isn't reliable.
+  // Strategy: open the FULL chain as saddr+daddr with "to:" syntax (works on most iOS versions).
+  // Fallback for anyone whose Apple Maps doesn't chain: single URL opens the first stop.
+  const saddr = encodeURIComponent(currentStart.addr);
+  const addrs = currentStops.map(s => `${s.street}, ${s.city} ${s.zip}`);
+  const chain = addrs.map(a => encodeURIComponent(a)).join('%20to:%20');
+  window.open(`http://maps.apple.com/?saddr=${saddr}&daddr=${chain}&dirflg=d`, '_blank');
 };
 
-document.getElementById('meta').textContent = `${DATA.length} sales loaded · GarageFest runs 8am–4pm`;
-
-// Mobile view tabs
-function setView(view) {
+// Tabs
+function setView(v){
   document.body.classList.remove('view-list','view-map');
-  document.body.classList.add('view-'+view);
-  document.getElementById('tabList').classList.toggle('active', view==='list');
-  document.getElementById('tabMap').classList.toggle('active', view==='map');
-  if (view==='map') setTimeout(() => map.invalidateSize(), 50);
+  document.body.classList.add('view-'+v);
+  $('#tabList').classList.toggle('active', v==='list');
+  $('#tabMap').classList.toggle('active', v==='map');
+  if (v==='map') setTimeout(() => map.invalidateSize(), 50);
 }
-document.getElementById('tabList').onclick = () => setView('list');
-document.getElementById('tabMap').onclick = () => setView('map');
+$('#tabList').onclick = () => setView('list');
+$('#tabMap').onclick = () => setView('map');
 
-// Auto-generate on load
-window.addEventListener('load', () => setTimeout(generate, 300));
+// Event ended banner
+function checkEventWindow(){
+  const now = new Date();
+  if (now > EVENT_END){
+    const b = $('#eventBanner');
+    b.className = 'banner';
+    b.textContent = '⚠️ GarageFest 2026 has ended — this tool is viewable but hosts have packed up.';
+    b.hidden = false;
+  }
+}
+
+// ============ INIT ============
+function init(){
+  buildCats();
+  buildKws();
+  applySavedSettings();
+  if (!$('#start').value) $('#start').value = '537 Terminal Ave, Modesto, CA';
+  $('#meta').textContent = `${DATA.length} sales · ends 4 PM`;
+  checkEventWindow();
+  // Auto-run on first load
+  setTimeout(() => generate(), 200);
+}
+init();
 </script>
 </body>
 </html>
